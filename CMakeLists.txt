@@ -10,16 +10,21 @@ endif()
 
 project ("W2E" VERSION 0.1 LANGUAGES C)
 
-include_directories("WinDivert/include")
+include_directories(
+	"w2e_common"
+	"WinDivert/include"
+)
 
-if(CMAKE_SIZE_OF_VOID_P EQUAL 8)  # 64bit
-	link_directories("WinDivert/x64")
-else()  # 32bit
-	link_directories("WinDivert/x86")
-endif()
+link_directories("WinDivert/x64")  # 64bit
+# link_directories("WinDivert/x86")  # 32bit
 
 # CMocka download
 include(FetchCMocka.cmake)
+
+
+# CONFIG
+add_compile_definitions(W2E_DEBUG)
+
 
 # Подпроекты
 add_subdirectory ("w2e_client")

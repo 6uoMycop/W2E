@@ -5,7 +5,7 @@
 If your build fails with
 
 ```
-    CMake Error: failed to create symbolic link
+CMake Error: failed to create symbolic link
 ```
 
 you should elevate to Administrator mode.
