@@ -8,7 +8,7 @@ if (POLICY CMP0141)
 	set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("W2E")
+project ("W2E" VERSION 0.1 LANGUAGES C)
 
 include_directories("WinDivert/include")
 
@@ -17,6 +17,9 @@ if(CMAKE_SIZE_OF_VOID_P EQUAL 8)  # 64bit
 else()  # 32bit
 	link_directories("WinDivert/x86")
 endif()
+
+# CMocka download
+include(FetchCMocka.cmake)
 
 # Подпроекты
 add_subdirectory ("w2e_client")

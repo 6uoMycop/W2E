@@ -7,4 +7,11 @@ if (CMAKE_VERSION VERSION_GREATER 3.21)
 	set_property(TARGET w2e_client PROPERTY C_STANDARD 17)
 endif()
 
-target_link_libraries(w2e_server WinDivert)
+target_link_libraries(w2e_server
+	PUBLIC WinDivert
+	PRIVATE cmocka-static
+)
+
+
+enable_testing()
+add_test(NAME w2e_server COMMAND w2e_server)
