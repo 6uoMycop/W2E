@@ -11,8 +11,7 @@
 #define __W2E_SERVER_H
 
 
-#include <stdio.h>
-
+#include "w2e_common.h"
 #include "windivert.h"
 
 
