@@ -1,14 +1,14 @@
 ﻿/*****************************************************************//**
- * \file   w2e_client.h
- * \brief  W2E client
+ * \file   w2e_server.h
+ * \brief  W2E server
  *
  * \author ark
  * \date   August 2024
  *********************************************************************/
 
 
-#ifndef __W2E_CLIENT_H
-#define __W2E_CLIENT_H
+#ifndef __W2E_SERVER_H
+#define __W2E_SERVER_H
 
 
 #include <stdio.h>
@@ -16,4 +16,4 @@
 #include "windivert.h"
 
 
-#endif // __W2E_CLIENT_H
+#endif // __W2E_SERVER_H

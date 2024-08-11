@@ -10,5 +10,14 @@ endif()
 
 project ("W2E")
 
-# Включите подпроекты.
+include_directories("WinDivert/include")
+
+if(CMAKE_SIZE_OF_VOID_P EQUAL 8)  # 64bit
+	link_directories("WinDivert/x64")
+else()  # 32bit
+	link_directories("WinDivert/x86")
+endif()
+
+# Подпроекты
 add_subdirectory ("w2e_client")
+add_subdirectory ("w2e_server")

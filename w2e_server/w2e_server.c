@@ -1,19 +1,17 @@
 ﻿/*****************************************************************//**
- * \file   w2e_client.h
- * \brief  W2E client
+ * \file   w2e_server.c
+ * \brief  W2E server
  *
  * \author ark
  * \date   August 2024
  *********************************************************************/
 
 
-#ifndef __W2E_CLIENT_H
-#define __W2E_CLIENT_H
+#include "w2e_server.h"
 
 
-#include <stdio.h>
-
-#include "windivert.h"
-
-
-#endif // __W2E_CLIENT_H
+int main(int argc, char* argv[])
+{
+	printf("TEST server\n");
+	return 0;
+}
