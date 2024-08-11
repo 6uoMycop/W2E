@@ -12,6 +12,7 @@ file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert.dll" DESTINATION ${CM
 
 target_link_libraries(w2e_client
 	PUBLIC WinDivert
+	PUBLIC wsock32
 	PRIVATE cmocka-static
 )
 

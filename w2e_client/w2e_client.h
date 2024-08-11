@@ -11,6 +11,9 @@
 #define __W2E_CLIENT_H
 
 
+#include <winsock.h>
+
+
 #include "w2e_common.h"
 #include "windivert.h"
 

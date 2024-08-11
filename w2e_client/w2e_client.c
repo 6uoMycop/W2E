@@ -126,8 +126,12 @@ int main(int argc, char* argv[])
 	/**
 	 * Filters initialization.
 	 */
-	filters[filter_num] = init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-
+	//filters[filter_num] = init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	//filters[filter_num] = init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	filters[filter_num] = init(
+		"!loopback "
+		"and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53)"
+		, 0);
 	w_filter = filters[filter_num];
 	filter_num++;
 
@@ -135,7 +139,12 @@ int main(int argc, char* argv[])
 	{
 		if (WinDivertRecv(w_filter, packet, sizeof(packet), &packetLen, &addr))
 		{
-			w2e_dbg_printf("Got %s packet, len=%d!\n", addr.Outbound ? "outbound" : "inbound", packetLen);
+			w2e_dbg_printf("Got %s packet, len=%d\n",
+				addr.Outbound ? "outbound" : "inbound", packetLen);
+
+			//	addr.Flow.LocalAddr[0] & 0xFF, (addr.Flow.LocalAddr[0] >> 8) & 0xFF, (addr.Flow.LocalAddr[0] >> 16) & 0xFF, (addr.Flow.LocalAddr[0] >> 24) & 0xFF, addr.Flow.LocalPort,
+			//	addr.Flow.RemoteAddr[0] & 0xFF, (addr.Flow.RemoteAddr[0] >> 8) & 0xFF, (addr.Flow.RemoteAddr[0] >> 16) & 0xFF, (addr.Flow.RemoteAddr[0] >> 24) & 0xFF, addr.Flow.LocalPort
+			//	);
 			//should_reinject = 1;
 			//should_recalc_checksum = 0;
 			//sni_ok = 0;
@@ -165,6 +174,18 @@ int main(int argc, char* argv[])
 					packet_v4 = 1;
 					if (ppTcpHdr)
 					{
+						w2e_dbg_printf("\tTCP src=%u.%u.%u.%u:%d\tdst=%u.%u.%u.%u:%d\n",
+							ppIpHdr->SrcAddr & 0xFF,
+							(ppIpHdr->SrcAddr >> 8) & 0xFF,
+							(ppIpHdr->SrcAddr >> 16) & 0xFF,
+							(ppIpHdr->SrcAddr >> 24) & 0xFF,
+							ntohs(ppTcpHdr->SrcPort),
+							ppIpHdr->DstAddr & 0xFF,
+							(ppIpHdr->DstAddr >> 8) & 0xFF,
+							(ppIpHdr->DstAddr >> 16) & 0xFF,
+							(ppIpHdr->DstAddr >> 24) & 0xFF,
+							ntohs(ppTcpHdr->DstPort)
+						);
 						packet_type = ipv4_tcp;
 						if (packet_data)
 						{
@@ -173,6 +194,19 @@ int main(int argc, char* argv[])
 					}
 					else if (ppUdpHdr && packet_data)
 					{
+						w2e_dbg_printf("\tUDP src=%u.%u.%u.%u:%d\tdst=%u.%u.%u.%u:%d\n",
+							ppIpHdr->SrcAddr & 0xFF,
+							(ppIpHdr->SrcAddr >> 8) & 0xFF,
+							(ppIpHdr->SrcAddr >> 16) & 0xFF,
+							(ppIpHdr->SrcAddr >> 24) & 0xFF,
+							ntohs(ppUdpHdr->SrcPort),
+							ppIpHdr->DstAddr & 0xFF,
+							(ppIpHdr->DstAddr >> 8) & 0xFF,
+							(ppIpHdr->DstAddr >> 16) & 0xFF,
+							(ppIpHdr->DstAddr >> 24) & 0xFF,
+							ntohs(ppUdpHdr->DstPort)
+						);
+
 						packet_type = ipv4_udp_data;
 					}
 				}
