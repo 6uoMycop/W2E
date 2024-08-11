@@ -3,12 +3,19 @@
 
 add_executable (w2e_client "w2e_client.c" "w2e_client.h")
 
+target_sources(w2e_client PRIVATE w2e_client.rc)
+
 if (CMAKE_VERSION VERSION_GREATER 3.21)
 	set_property(TARGET w2e_client PROPERTY C_STANDARD 17)
 endif()
 
 # Copy DLL to be near EXE
 file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert.dll" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy RC and ICO to be near EXE
+#file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/w2e_client.rc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+#file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/w2e_client.ico" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Add resource
+target_sources(w2e_client PRIVATE w2e_client.rc)
 
 target_link_libraries(w2e_client
 	PUBLIC WinDivert

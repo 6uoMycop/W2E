@@ -9,6 +9,11 @@ endif()
 
 # Copy DLL to be near EXE
 file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert.dll" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy RC and ICO to be near EXE
+#file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/w2e_server.rc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+#file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/w2e_server.ico" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Add resource
+target_sources(w2e_server PRIVATE w2e_server.rc)
 
 target_link_libraries(w2e_server
 	PUBLIC WinDivert
