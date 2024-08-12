@@ -20,5 +20,12 @@
  */
 #define W2E_PREAMBLE_SIZE 20 + 8
 
+#ifndef W2E_CLIENT_PORT
+/**
+ * Client's UDP source port.
+ */
+#define W2E_CLIENT_PORT 55888
+#endif // !W2E_CLIENT_PORT
+
 
 #endif // __W2E_CLIENT_H

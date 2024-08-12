@@ -146,9 +146,11 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 				w2e_dbg_printf("packet_type: %d, packet_v4: %d, packet_v6: %d\n", packet_type, packet_v4, packet_v6);
 
+				
 				/**
 				 * Add incapsulation header.
 				 */
+
 				packetLen += W2E_PREAMBLE_SIZE;
 
 				/** New IPv4 header */
@@ -158,15 +160,23 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 
 				/** New UDP header */
-				ppUdpHdr_pre->SrcPort = htons(55888); // Constant port - marker of encrypted traffic
+				ppUdpHdr_pre->SrcPort = htons(W2E_CLIENT_PORT); // Constant port - marker of encrypted traffic
 				ppUdpHdr_pre->DstPort = htons(55000); // Remote w2e server port (client-bent) // @TODO Substitute actual port
 				ppUdpHdr_pre->Length = htons(packetLen - 20); // minus IPv4 header length
+
+
+				/**
+				 * Encrypt payload.
+				 */
+				//@TODO
+
 
 				/** Recalculate CRCs (IPv4 and UDP) */
 				WinDivertHelperCalcChecksums(
 					&p, packetLen, &addr,
 					(UINT64)(WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
 
+				/** Send modified packet */
 				WinDivertSend(w_filter, &p, packetLen, NULL, &addr);
 			}
 			else
