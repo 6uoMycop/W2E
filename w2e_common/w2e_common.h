@@ -25,22 +25,47 @@
 
 #ifndef W2E_HOST_MAXLEN
 #define W2E_HOST_MAXLEN 253
-#endif // W2E_HOST_MAXLEN
+#endif // !W2E_HOST_MAXLEN
 
 #ifndef W2E_MAX_PACKET_SIZE
 #define W2E_MAX_PACKET_SIZE 9016
-#endif // W2E_MAX_PACKET_SIZE
+#endif // !W2E_MAX_PACKET_SIZE
 
 #ifndef W2E_MAX_FILTERS
 #define W2E_MAX_FILTERS 4
 #endif // !W2E_MAX_FILTERS
 
 
+/**
+ * Debug log.
+ */
 #ifndef W2E_DEBUG
+ /** Debug printf macro NOP */
 #define w2e_dbg_printf(...) do {} while (0);
+#else // W2E_DEBUG
+/** Enable verbose logging anyway */
+#ifndef W2E_VERBOSE
+#define W2E_VERBOSE
+#endif // !W2E_VERBOSE
+/** Define debug printf macro */
+#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s() %s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+#endif // W2E_DEBUG
+
+
+/**
+ * Verbose log.
+ */
+#ifndef W2E_VERBOSE
+ /** Verbose printf macro NOP */
+#define w2e_log_printf(...) do {} while (0);
 #else
-#define w2e_dbg_printf(...) printf(__VA_ARGS__);
-#endif
+/** Define verbose printf macro */
+#define w2e_log_printf(fmt, ...) printf("[LOG] %s() %s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+#endif // !W2E_VERBOSE
+
+
+/** Define error printf macro */
+#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s() %s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
 
 
 HANDLE w2e_common__init(char* filter, UINT64 flags);

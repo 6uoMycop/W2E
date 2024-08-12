@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 		ipv6_tcp, ipv6_tcp_data, ipv6_udp_data
 	} packet_type;
 
-	printf("TEST client\n");
+	w2e_log_printf("Client is starting...\n");
 
 	signal(SIGINT, sigint_handler);
 
@@ -64,6 +64,7 @@ int main(int argc, char* argv[])
 	w_filter = filters[filter_num];
 	filter_num++;
 
+	w2e_log_printf("Client loop operating\n");
 	while (1)
 	{
 		if (WinDivertRecv(w_filter, packet, sizeof(packet), &packetLen, &addr))
