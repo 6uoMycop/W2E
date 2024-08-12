@@ -1,6 +1,6 @@
 ﻿/*****************************************************************//**
  * \file   w2e_client.c
- * \brief  W2E client
+ * \brief  W2E client application
  *
  * \author ark
  * \date   August 2024
@@ -10,88 +10,17 @@
 #include "w2e_client.h"
 
 
-static HANDLE filters[MAX_FILTERS];
+/**
+ * Have to be global because they are passed to signal handler.
+ */
+static HANDLE filters[W2E_MAX_FILTERS];
 static int filter_num = 0;
-
-
-static HANDLE init(char* filter, UINT64 flags)
-{
-	LPTSTR errormessage = NULL;
-	DWORD errorcode = 0;
-
-	filter = WinDivertOpen(filter, WINDIVERT_LAYER_NETWORK, 0, flags);
-
-	if (filter != INVALID_HANDLE_VALUE)
-	{
-		return filter;
-	}
-
-	errorcode = GetLastError();
-
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, errorcode, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
-		(LPTSTR)&errormessage, 0, NULL);
-
-	printf("Error opening filter: %d %s\n", errorcode, errormessage);
-
-	LocalFree(errormessage);
-
-	if (errorcode == 2)
-		printf("The driver files WinDivert32.sys or WinDivert64.sys were not found.\n");
-	else if (errorcode == 654)
-		printf("An incompatible version of the WinDivert driver is currently loaded.\n"
-			"Please unload it with the following commands ran as administrator:\n\n"
-			"sc stop windivert\n"
-			"sc delete windivert\n"
-			"sc stop windivert14"
-			"sc delete windivert14\n");
-	else if (errorcode == 1275)
-		printf("This error occurs for various reasons, including:\n"
-			"the WinDivert driver is blocked by security software; or\n"
-			"you are using a virtualization environment that does not support drivers.\n");
-	else if (errorcode == 1753)
-		printf("This error occurs when the Base Filtering Engine service has been disabled.\n"
-			"Enable Base Filtering Engine service.\n");
-	else if (errorcode == 577)
-		printf("Could not load driver due to invalid digital signature.\n"
-			"Windows Server 2016 systems must have secure boot disabled to be \n"
-			"able to load WinDivert driver.\n"
-			"Windows 7 systems must be up-to-date or at least have KB3033929 installed.\n"
-			"https://www.microsoft.com/en-us/download/details.aspx?id=46078\n\n"
-			"WARNING! If you see this error on Windows 7, it means your system is horribly "
-			"outdated and SHOULD NOT BE USED TO ACCESS THE INTERNET!\n"
-			"Most probably, you don't have security patches installed and anyone in you LAN or "
-			"public Wi-Fi network can get full access to your computer (MS17-010 and others).\n"
-			"You should install updates IMMEDIATELY.\n");
-
-	return NULL;
-}
-
-static int deinit(HANDLE handle)
-{
-	if (handle)
-	{
-		WinDivertShutdown(handle, WINDIVERT_SHUTDOWN_BOTH);
-		WinDivertClose(handle);
-		return TRUE;
-	}
-	return FALSE;
-}
-
-void deinit_all()
-{
-	for (int i = 0; i < filter_num; i++)
-	{
-		deinit(filters[i]);
-	}
-}
 
 
 static void sigint_handler(int sig)
 {
 	//exiting = 1;
-	deinit_all();
+	w2e_common__deinit_all(filters, filter_num);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
@@ -102,7 +31,7 @@ static void sigint_handler(int sig)
 int main(int argc, char* argv[])
 {
 	HANDLE w_filter = NULL;
-	uint8_t packet[MAX_PACKET_SIZE];
+	uint8_t packet[W2E_MAX_PACKET_SIZE];
 	UINT packetLen;
 	WINDIVERT_ADDRESS addr;
 	PVOID packet_data;
@@ -126,9 +55,9 @@ int main(int argc, char* argv[])
 	/**
 	 * Filters initialization.
 	 */
-	//filters[filter_num] = init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	//filters[filter_num] = init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	filters[filter_num] = init(
+	//filters[filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	//filters[filter_num] = w2e_common__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	filters[filter_num] = w2e_common__init(
 		"!loopback "
 		"and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53)"
 		, 0);
@@ -294,7 +223,7 @@ int main(int argc, char* argv[])
 							)
 						{
 #ifdef DEBUG
-							char lsni[HOST_MAXLEN + 1] = { 0 };
+							char lsni[W2E_HOST_MAXLEN + 1] = { 0 };
 							extract_sni(packet_data, packet_dataLen,
 								&host_addr, &host_len);
 							memcpy(lsni, host_addr, host_len);
@@ -327,13 +256,13 @@ int main(int argc, char* argv[])
 					/* Find Host header */
 					if (find_header_and_get_info(packet_data, packet_dataLen,
 						http_host_find, &hdr_name_addr, &hdr_value_addr, &hdr_value_len) &&
-						hdr_value_len > 0 && hdr_value_len <= HOST_MAXLEN &&
+						hdr_value_len > 0 && hdr_value_len <= W2E_HOST_MAXLEN &&
 						(do_blacklist ? blackwhitelist_check_hostname(hdr_value_addr, hdr_value_len) : 1))
 					{
 						host_addr = hdr_value_addr;
 						host_len = hdr_value_len;
 #ifdef DEBUG
-						char lhost[HOST_MAXLEN + 1] = { 0 };
+						char lhost[W2E_HOST_MAXLEN + 1] = { 0 };
 						memcpy(lhost, host_addr, host_len);
 						printf("Blocked HTTP website Host: %s\n", lhost);
 #endif
@@ -428,7 +357,7 @@ int main(int argc, char* argv[])
 										should_recalc_checksum = 1;
 										//printf("Replaced Host header!\n");
 									}
-								} /* if (host_len <= HOST_MAXLEN && useragent_addr) */
+								} /* if (host_len <= W2E_HOST_MAXLEN && useragent_addr) */
 							} /* if (find_header_and_get_info http_useragent) */
 						} /* else if (do_host_removespace) */
 					} /* if (find_header_and_get_info http_host) */

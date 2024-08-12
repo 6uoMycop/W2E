@@ -14,6 +14,7 @@ file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert64.sys" DESTINATION ${
 target_sources(w2e_server PRIVATE w2e_server.rc)
 
 target_link_libraries(w2e_server
+	PUBLIC w2e_common
 	PUBLIC WinDivert
 	PRIVATE cmocka-static
 )

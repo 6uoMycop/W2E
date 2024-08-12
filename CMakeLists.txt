@@ -27,5 +27,6 @@ add_compile_definitions(W2E_DEBUG)
 
 
 # Подпроекты
-add_subdirectory ("w2e_client")
-add_subdirectory ("w2e_server")
+add_subdirectory ("w2e_common")  # Common library, linked to all apps
+add_subdirectory ("w2e_client")  # Client application
+add_subdirectory ("w2e_server")  # Server application

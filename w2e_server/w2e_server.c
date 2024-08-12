@@ -1,6 +1,6 @@
 ﻿/*****************************************************************//**
  * \file   w2e_server.c
- * \brief  W2E server
+ * \brief  W2E server application
  *
  * \author ark
  * \date   August 2024
