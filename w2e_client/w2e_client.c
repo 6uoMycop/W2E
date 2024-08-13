@@ -248,7 +248,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 				/** New IPv4 header */
 				ppIpHdr_pre->Length = htons(packetLen);
 				ppIpHdr_pre->SrcAddr = ppIpHdr->SrcAddr; // Same src address
-				ppIpHdr_pre->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
+				ppIpHdr_pre->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
+				//ppIpHdr_pre->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
 
 				/** New UDP header */
