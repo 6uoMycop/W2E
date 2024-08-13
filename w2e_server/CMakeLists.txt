@@ -10,6 +10,10 @@ elseif (CMAKE_VERSION VERSION_GREATER 3.1)
 endif()
 
 target_link_libraries(w2e_server
+	PUBLIC -lnetfilter_queue
+	PUBLIC -lpthread
+	PUBLIC -lrt
+	PUBLIC -lm
 	PRIVATE cmocka-static
 )
 

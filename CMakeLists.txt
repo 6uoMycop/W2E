@@ -19,6 +19,8 @@ if (MSVC)
 include_directories(
 	"WinDivert/include"
 )
+link_directories("WinDivert/x64")  # 64bit
+# link_directories("WinDivert/x86")  # 32bit
 endif (MSVC)
 
 # Linux-specific
@@ -28,8 +30,6 @@ endif (MSVC)
 #)
 #endif(UNIX)
 
-link_directories("WinDivert/x64")  # 64bit
-# link_directories("WinDivert/x86")  # 32bit
 
 # CMocka download
 include(FetchCMocka.cmake)
