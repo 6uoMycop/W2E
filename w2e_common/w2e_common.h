@@ -1,6 +1,6 @@
 /*****************************************************************//**
  * \file   w2e_common.h
- * \brief  Static library - Common W2E includes, macros and functions
+ * \brief  Common W2E includes and macros (cross-platform)
  * 
  * \author ark
  * \date   August 2024
@@ -34,6 +34,13 @@
 #ifndef W2E_MAX_FILTERS
 #define W2E_MAX_FILTERS 4
 #endif // !W2E_MAX_FILTERS
+
+/**
+ * AES key length in bytes.
+ */
+#ifndef W2E_KEY_LEN
+#define W2E_KEY_LEN (128 / 8)
+#endif // !W2E_KEY_LEN
 
 
 /**

@@ -10,18 +10,21 @@ endif()
 
 project ("W2E" VERSION 0.1 LANGUAGES C)
 
+# Common
 include_directories(
 	"w2e_common"
 )
+link_directories("w2e_crypto")  # 64bit
 
 # Windows-specific
 if (MSVC)
 include_directories(
 	"WinDivert/include"
+	"w2e_crypto"
 )
 link_directories("WinDivert/x64")  # 64bit
 # link_directories("WinDivert/x86")  # 32bit
-endif (MSVC)
+endif ()
 
 # Linux-specific
 #if(UNIX)
@@ -43,8 +46,10 @@ add_compile_definitions(W2E_DEBUG)
 
 if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)
-endif (MSVC)
+endif ()
 
 if(UNIX)
 add_subdirectory ("w2e_server")  # Server application (Linux)
-endif(UNIX)
+endif()
+
+add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)

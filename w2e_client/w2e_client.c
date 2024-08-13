@@ -296,6 +296,25 @@ int main(int argc, char* argv[])
 	signal(SIGINT, w2c_client__sigint_handler);
 
 	/**
+	 * Crypto lib init.
+	 */
+
+	if (w2e_crypto_init("0000000000000000", W2E_KEY_LEN) != 0)
+	{
+		w2e_print_error("Crypto init error\n");
+		return 1;
+	}
+	uint8_t p[] = "START67890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuEND";
+	uint8_t c[129] = { 0 };
+	uint8_t r[129] = { 0 };
+	w2e_crypto_enc(p, c);
+	w2e_crypto_dec(c, r);
+	w2e_crypto_deinit();
+	return 0;
+
+
+
+	/**
 	 * Filters initialization.
 	 */
 	//filters[filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
@@ -309,6 +328,9 @@ int main(int argc, char* argv[])
 	filter_num++;
 
 	w2c_client__main_loop(w_filter);
+
+
+	w2e_crypto_deinit();
 
 	return 0;
 }

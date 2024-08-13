@@ -15,6 +15,7 @@
 #include <winsock.h>
 
 #include "w2e_common.h"
+#include "w2e_crypto.h"
 #include "windivert.h"
 
 
