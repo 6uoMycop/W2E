@@ -64,6 +64,8 @@ iptables -t raw -A PREROUTING -i ens4 -p icmp -j NFQUEUE --queue-num 0 --queue-b
 
 - To enable `NFQUEUE` on WSL you need to recompile WSL kernel. The following guide was tested on Debian with linux-msft-wsl-5.15.146.1 kernel.
 
+	- Install update MSI from [here](https://learn.microsoft.com/ru-ru/windows/wsl/install-manual#step-4---download-the-linux-kernel-update-package)
+
 	- Install dependencies
 
 	```
@@ -122,9 +124,9 @@ iptables -t raw -A PREROUTING -i ens4 -p icmp -j NFQUEUE --queue-num 0 --queue-b
 
 	- Backup old kernel
 
-	In `C:\Windows\System32\lxss\tools` there is a file `kernel`
+	In `C:\Windows\System32\lxss\tools` there is a file `kernel`. Rename it to `kernel.rollback`.
 
-
+	- Copy new `bzImage` to `C:\Windows\System32\lxss\tools` as `kernel`.
 
 
 
