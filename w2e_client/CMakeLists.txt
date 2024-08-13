@@ -16,7 +16,6 @@ file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert64.sys" DESTINATION ${
 target_sources(w2e_client PRIVATE w2e_client.rc)
 
 target_link_libraries(w2e_client
-	PUBLIC w2e_common
 	PUBLIC WinDivert
 	PUBLIC wsock32
 	PRIVATE cmocka-static
@@ -24,4 +23,4 @@ target_link_libraries(w2e_client
 
 
 enable_testing()
-add_test(NAME w2e_client COMMAND w2e_server)
+add_test(NAME w2e_client COMMAND w2e_client)

@@ -12,8 +12,21 @@ project ("W2E" VERSION 0.1 LANGUAGES C)
 
 include_directories(
 	"w2e_common"
+)
+
+# Windows-specific
+if (MSVC)
+include_directories(
 	"WinDivert/include"
 )
+endif (MSVC)
+
+# Linux-specific
+#if(UNIX)
+#include_directories(
+#	""
+#)
+#endif(UNIX)
 
 link_directories("WinDivert/x64")  # 64bit
 # link_directories("WinDivert/x86")  # 32bit
@@ -27,6 +40,11 @@ add_compile_definitions(W2E_DEBUG)
 
 
 # Подпроекты
-add_subdirectory ("w2e_common")  # Common library, linked to all apps
-add_subdirectory ("w2e_client")  # Client application
-add_subdirectory ("w2e_server")  # Server application
+
+if (MSVC)
+add_subdirectory ("w2e_client")  # Client application (Windows)
+endif (MSVC)
+
+if(UNIX)
+add_subdirectory ("w2e_server")  # Server application (Linux)
+endif(UNIX)

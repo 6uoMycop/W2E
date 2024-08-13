@@ -4,18 +4,12 @@
 add_executable (w2e_server "w2e_server.c" "w2e_server.h")
 
 if (CMAKE_VERSION VERSION_GREATER 3.21)
-	set_property(TARGET w2e_client PROPERTY C_STANDARD 17)
+	set_property(TARGET w2e_server PROPERTY C_STANDARD 17)
+elseif (CMAKE_VERSION VERSION_GREATER 3.1)
+	set_property(TARGET w2e_server PROPERTY C_STANDARD 11)
 endif()
 
-# Copy DLL and SYS to be near EXE
-file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert.dll" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert64.sys" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-# Add resource
-target_sources(w2e_server PRIVATE w2e_server.rc)
-
 target_link_libraries(w2e_server
-	PUBLIC w2e_common
-	PUBLIC WinDivert
 	PRIVATE cmocka-static
 )
 

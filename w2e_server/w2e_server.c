@@ -1,6 +1,6 @@
 ﻿/*****************************************************************//**
  * \file   w2e_server.c
- * \brief  W2E server application
+ * \brief  W2E server application (Linux)
  *
  * \author ark
  * \date   August 2024
@@ -12,6 +12,6 @@
 
 int main(int argc, char* argv[])
 {
-	printf("TEST server\n");
+	w2e_log_printf("Server is starting...\n");
 	return 0;
 }

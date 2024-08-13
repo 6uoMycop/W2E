@@ -13,10 +13,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <signal.h>
-#include <winsock.h>
-
-#include "windivert.h"
 
 
 /**
@@ -70,22 +66,6 @@
 
 /** Define error printf macro */
 #define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
-
-
-/**
- * For packed structures.
- */
-#ifdef _MSC_VER
-#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
-#else
-#error NOT MSVC
-#endif
-
-
-
-HANDLE w2e_common__init(char* filter, UINT64 flags);
-
-void w2e_common__deinit_all(HANDLE * filters, int filter_num);
 
 
 #endif // __W2E_COMMON_H
