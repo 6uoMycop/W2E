@@ -309,31 +309,32 @@ int main(int argc, char* argv[])
 		w2e_print_error("Crypto init error\n");
 		return 1;
 	}
-	uint8_t p[] = "START67890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuEND";
+	//uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm123END";
+	uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890END";
 	uint8_t c[129] = { 0 };
 	uint8_t r[129] = { 0 };
 
-	for (int offset = 0; offset < 64; offset += W2E_KEY_LEN)
+	for (int i = 0; i < sizeof(p); i++)
 	{
-		w2e_crypto_enc(&(p[offset]), &(c[offset]));
+		printf("%02X ", p[i]);
+	}
+	printf("\n\n");
 
-		for (int i = 0; i < W2E_KEY_LEN; i++)
-		{
-			printf("  %02X ", c[offset + i]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-	for (int offset = 0; offset < 64; offset += W2E_KEY_LEN)
+	int sz = w2e_crypto_enc(p, c, sizeof(p), sizeof(c));
+
+	for (int i = 0; i < sizeof(c); i++)
 	{
-		w2e_crypto_dec(&(c[offset]), &(r[offset]));
-		//for (int i = 0; i < W2E_KEY_LEN; i++)
-		//{
-		//	printf("%c %02X ", r[offset + i], r[offset + i]);
-		//}
-		printf("%s\n", r);
-		printf("\n");
+		printf("%02X ", c[i]);
 	}
+	printf("\n\n");
+	w2e_crypto_dec(c, r, sz);
+	for (int i = 0; i < sizeof(r); i++)
+	{
+		printf("%02X ", r[i]);
+	}
+	printf("\n\n");
+	printf("%s\n", r);
+	printf("\n\n");
 	w2e_crypto_deinit();
 	return 0;
 
@@ -342,8 +343,8 @@ int main(int argc, char* argv[])
 	/**
 	 * Filters initialization.
 	 */
-	//g_filters[g_filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	//g_filters[g_filter_num] = w2e_common__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	 //g_filters[g_filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	 //g_filters[g_filter_num] = w2e_common__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
 	g_filters[g_filter_num] = w2e_common__init(
 		" !loopback"
 		" and ip"

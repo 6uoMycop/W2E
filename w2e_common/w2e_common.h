@@ -23,11 +23,11 @@
 #define W2E_HOST_MAXLEN 253
 #endif // !W2E_HOST_MAXLEN
 
-#ifndef W2E_MAX_PACKET_SIZE
 /**
  * Effective packet length is reduced because of insertion of new headers.
  * Refer to client's and server's source code.
  */
+#ifndef W2E_MAX_PACKET_SIZE
 #define W2E_MAX_PACKET_SIZE 9016
 #endif // !W2E_MAX_PACKET_SIZE
 

@@ -27,9 +27,19 @@ int w2e_crypto_init(const u8* key, size_t len);
  */
 void w2e_crypto_deinit();
 
-void w2e_crypto_enc(const u8* plain, u8* crypt);
+/**
+ * Encrypt buffer of given size sz_fact.
+ * sz_max must be equal to size of plains and crypt buffers.
+ * Add 0 padding at the end of plaintext (if sz_max affords to).
+ * Returns size of resulting array in bytes.
+ */
+int w2e_crypto_enc(u8* plain, u8* crypt, int sz_fact, int sz_max);
 
-void w2e_crypto_dec(const u8* plain, u8* crypt);
+/**
+ * Decrypt buffer of given size sz_fact.
+ * Be careful -- may contain padding
+ */
+void w2e_crypto_dec(u8* crypt, const u8* plain, int sz_fact);
 
 
 #endif // __W2E_CRYPTO_H
