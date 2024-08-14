@@ -81,4 +81,56 @@
 #define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
 
 
+
+/**
+ * "Preamble" is placed before packet and used for insertion of new IP + UDP header.
+ * Currently IPv4 without options + ICMPv4 (or UDP)
+ */
+#define W2E_PREAMBLE_SIZE 20 + 8 // IPv4 + ICMPv4 (or UDP)
+
+/**
+ * Packet data. Has free space at the beginning for inserting preamble.
+ */
+typedef union {
+	struct {
+		uint8_t p_1[W2E_PREAMBLE_SIZE];							 // To add preamble on encode
+		uint8_t p0[W2E_PREAMBLE_SIZE];							 // Base
+		uint8_t p1[W2E_MAX_PACKET_SIZE - 2 * W2E_PREAMBLE_SIZE]; // To remove preamble on decode
+	} split;
+	uint8_t raw[W2E_MAX_PACKET_SIZE];
+} w2e_pkt_t;
+
+
+
+// IPv4 header template. <These> fields will be edited.
+// |version=4,ihl=5| tos=0  |     <packet size>    |
+// |           id=0         |R=0,DF=1,MF=0,offset=0|
+// |   TTL=255     |proto=07|         <crc>        |
+// |                    <IP src>                   |
+// |                    <IP dst>                   |
+#define W2E_TEMPLATE_IPH \
+0x45, 0x00, 0x00, 0x00,\
+0x00, 0x00, 0x40, 0x00,\
+0xFF, 0x01, 0x00, 0x00,\
+0x00, 0x00, 0x00, 0x00,\
+0x00, 0x00, 0x00, 0x00
+
+
+// ICMPv4 header template. <These> fields will be edited.
+// |  type=8   |  code=0    |       <ICMP crc>     |
+// |          <id>          |       <seq>          |
+#define W2E_TEMPLATE_ICMPH \
+0x08, 0x00, 0x00, 0x00,\
+0xde, 0xad, 0xfa, 0xce
+//0x00, 0x00, 0x00, 0x00
+
+
+// UDP header template. <These> fields will be edited.
+// |      <UDP src>         |       <UDP dst>      |
+// |      <UDP len>         |       <UDP crc>      |
+#define W2E_TEMPLATE_UDPH \
+0x00, 0x00, 0x00, 0x00,\
+0x00, 0x00, 0x00, 0x00
+
+
 #endif // __W2E_COMMON_H

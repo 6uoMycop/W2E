@@ -18,7 +18,6 @@
 #include "windivert.h"
 
 
-
 #ifndef W2E_CLIENT_PORT
 /**
  * Client's UDP source port.
@@ -26,40 +25,26 @@
 #define W2E_CLIENT_PORT 55888
 #endif // !W2E_CLIENT_PORT
 
-// IPv4 header template. <These> fields will be edited.
-// |version=4,ihl=5| tos=0  |     <packet size>    |
-// |           id=0         |R=0,DF=1,MF=0,offset=0|
-// |   TTL=255     |proto=07|         <crc>        |
-// |                    <IP src>                   |
-// |                    <IP dst>                   |
-#define W2E_TEMPLATE_IPH \
-0x45, 0x00, 0x00, 0x00,\
-0x00, 0x00, 0x40, 0x00,\
-0xFF, 0x01, 0x00, 0x00,\
-0x00, 0x00, 0x00, 0x00,\
-0x00, 0x00, 0x00, 0x00
+typedef struct {
+	UINT					len_total;
+	UINT					len_data;
 
-// UDP header template. <These> fields will be edited.
-// |      <UDP src>         |       <UDP dst>      |
-// |      <UDP len>         |       <UDP crc>      |
-#define W2E_TEMPLATE_UDPH \
-0x00, 0x00, 0x00, 0x00,\
-0x00, 0x00, 0x00, 0x00
+	WINDIVERT_ADDRESS		addr;
 
-// ICMPv4 header template. <These> fields will be edited.
-// |  type=8   |  code=0    |       <ICMP crc>     |
-// |          <id>          |       <seq>          |
-#define W2E_TEMPLATE_ICMPH \
-0x08, 0x00, 0x00, 0x00,\
-0x01, 0x02, 0x02, 0x01
-//0x00, 0x00, 0x00, 0x00
+	w2e_pkt_t*				pkt;
 
+	PWINDIVERT_IPHDR		hdr_ip;
+	PWINDIVERT_IPV6HDR		hdr_ipv6;
 
-/**
- * "Preamble" is placed before packet and used for insertion of new IP + UDP header.
- * Currently IPv4 without options + ICMPv4 (or UDP)
- */
-#define W2E_PREAMBLE_SIZE 20 + 8 // IPv4 + ICMPv4 (or UDP)
+	PWINDIVERT_ICMPHDR		hdr_icmp;
+	PWINDIVERT_ICMPV6HDR	hdr_icmpv6;
+
+	PWINDIVERT_TCPHDR		hdr_tcp;
+	PWINDIVERT_UDPHDR		hdr_udp;
+
+	PVOID					data;
+} w2e_client_ctx_t;
+
 
 
 #endif // __W2E_CLIENT_H

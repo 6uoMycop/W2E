@@ -123,32 +123,42 @@ static void w2c_client__sigint_handler(int sig)
 
 static void w2c_client__main_loop(HANDLE w_filter)
 {
-	struct {
-		uint8_t preamble[W2E_PREAMBLE_SIZE];
-		uint8_t packet[W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE];
-	} p = {
-		.preamble = {               //  IPv4 and UDP headers.
-			W2E_TEMPLATE_IPH,
-			W2E_TEMPLATE_ICMPH
-		},
-		.packet = { 0 }
+	static w2e_pkt_t pkt1 = {
+		.split = {
+			.p_1 = {               //  IPv4 and UDP headers.
+				W2E_TEMPLATE_IPH,
+				W2E_TEMPLATE_ICMPH
+			},
+			.p0 = { 0 },
+			.p1 = { 0 }
+		}
 	};
-	uint8_t recv_pkt[W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE] = { 0 };
+	static w2e_pkt_t pkt2 = {
+		.split = {
+			.p_1 = {               //  IPv4 and UDP headers.
+				W2E_TEMPLATE_IPH,
+				W2E_TEMPLATE_ICMPH
+			},
+			.p0 = { 0 },
+			.p1 = { 0 }
+		}
+	};
 
 	UINT packetLen;
 	WINDIVERT_ADDRESS addr;
 	PVOID packet_data;
 	UINT packet_dataLen;
+
 	PWINDIVERT_IPHDR ppIpHdr;
 	PWINDIVERT_IPV6HDR ppIpV6Hdr;
 	PWINDIVERT_TCPHDR ppTcpHdr;
 	PWINDIVERT_UDPHDR ppUdpHdr;
 	PWINDIVERT_ICMPHDR ppIcmpHdr;
-	int packet_v4, packet_v6;
+	PWINDIVERT_ICMPV6HDR ppIcmpv6Hdr;
 
-	PWINDIVERT_IPHDR ppIpHdr_pre = (PWINDIVERT_IPHDR) & (p.preamble[0]);  // Preamble IPv4 header
-	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (p.preamble[20]); // Preamble UDP header
-	PWINDIVERT_ICMPHDR ppIcmpHdr_pre = (PWINDIVERT_ICMPHDR) & (p.preamble[20]); // Preamble ICMP header
+	PWINDIVERT_IPHDR ppIpHdr_pre = (PWINDIVERT_IPHDR) & (pkt1.split.p_1[0]);  // Preamble IPv4 header
+	PWINDIVERT_ICMPHDR ppIcmpHdr_pre = (PWINDIVERT_ICMPHDR) & (pkt1.split.p_1[20]); // Preamble ICMP header
+	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (pkt1.split.p_1[20]); // Preamble UDP header
 	int sz_real = 0;
 
 	static enum packet_type_e {
@@ -175,7 +185,6 @@ static void w2c_client__main_loop(HANDLE w_filter)
 			ppTcpHdr = (PWINDIVERT_TCPHDR)NULL;
 			ppUdpHdr = (PWINDIVERT_UDPHDR)NULL;
 			ppIcmpHdr = (PWINDIVERT_ICMPHDR)NULL;
-			packet_v4 = packet_v6 = 0;
 			packet_type = unknown;
 
 			// Parse network packet and set it's type
@@ -268,7 +277,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 					/**
 					 * Encrypt payload.
 					 */
-					sz_real = w2e_crypto_enc(recv_pkt, p.packet, packetLen, sizeof(recv_pkt));
+					sz_real = w2e_crypto_enc(recv_pkt, pkt1.split.packet, packetLen, sizeof(recv_pkt));
 
 
 					/**
@@ -292,13 +301,13 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 					/** Recalculate CRCs (IPv4 and ICMP) */
 					WinDivertHelperCalcChecksums(
-						&p, sz_real + W2E_PREAMBLE_SIZE, &addr,
+						&pkt1, sz_real + W2E_PREAMBLE_SIZE, &addr,
 						(UINT64)0LL);
 					//(UINT64)(WINDIVERT_HELPER_NO_UDP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
 					//(UINT64)(WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
 
 					/** Send modified packet */
-					WinDivertSend(w_filter, &p, sz_real + W2E_PREAMBLE_SIZE, NULL, &addr);
+					WinDivertSend(w_filter, &pkt1, sz_real + W2E_PREAMBLE_SIZE, NULL, &addr);
 					continue;
 				}
 				else if (packet_type == ipv4_icmp_data && ppIcmpHdr->Body == 0x01020201) /** Decryption needed */
@@ -306,7 +315,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 					/**
 					 * Decrypt payload.
 					 */
-					sz_real = w2e_crypto_dec_pkt_ipv4(&(recv_pkt[W2E_PREAMBLE_SIZE]), p.packet, packetLen - W2E_PREAMBLE_SIZE);
+					sz_real = w2e_crypto_dec_pkt_ipv4(&(recv_pkt[W2E_PREAMBLE_SIZE]), pkt1.split.packet, packetLen - W2E_PREAMBLE_SIZE);
 
 					/** Recalculate CRCs (IPv4 and ICMP) */
 					//WinDivertHelperCalcChecksums(
@@ -314,7 +323,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 					//	(UINT64)0LL);
 
 					/** Send modified packet */
-					WinDivertSend(w_filter, p.packet, sz_real, NULL, &addr);
+					WinDivertSend(w_filter, pkt1.split.packet, sz_real, NULL, &addr);
 					continue;
 				}
 
@@ -323,10 +332,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 			}
 			else
 			{
-				// error, ignore
-				//if (!exiting)
-				w2e_print_error("Error receiving packet!\n");
-				break;
+				w2e_print_error("Error parsing packet!\n");
 			}
 		}
 	}
