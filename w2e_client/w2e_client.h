@@ -48,17 +48,18 @@
 0x00, 0x00, 0x00, 0x00
 
 // ICMPv4 header template. <These> fields will be edited.
-// |  type=8   |  code=0    |       <ICMP seq>     |
+// |  type=8   |  code=0    |       <ICMP crc>     |
+// |          <id>          |       <seq>          |
 #define W2E_TEMPLATE_ICMPH \
-0x08, 0x00, 0x00, 0x00
+0x08, 0x00, 0x00, 0x00,\
+0x00, 0x00, 0x00, 0x00
 
 
 /**
  * "Preamble" is placed before packet and used for insertion of new IP + UDP header.
- * Currently IPv4 without options + ICMPv4
+ * Currently IPv4 without options + ICMPv4 (or UDP)
  */
-#define W2E_PREAMBLE_SIZE 20 + 4 // IPv4 + ICMPv4
-//#define W2E_PREAMBLE_SIZE 20 + 8 // IPv4 + UDP
+#define W2E_PREAMBLE_SIZE 20 + 8 // IPv4 + ICMPv4 (or UDP)
 
 
 #endif // __W2E_CLIENT_H
