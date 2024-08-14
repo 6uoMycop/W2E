@@ -127,17 +127,13 @@ static void w2c_client__main_loop(HANDLE w_filter)
 		uint8_t preamble[W2E_PREAMBLE_SIZE];
 		uint8_t packet[W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE];
 	} p = {
-		.preamble = {               //  IPv4 and UDP headers. <These> fields will be edited.
-			0x45, 0x00, 0x00, 0x00, // |version=4,ihl=5| tos=0  |     <packet size>    |
-			0x00, 0x00, 0x40, 0x00, // |           id=0         |R=0,DF=1,MF=0,offset=0|
-			0xFF, 0x11, 0x00, 0x00, // |   TTL=255     |proto=17|         <crc>        |
-			0x00, 0x00, 0x00, 0x00, // |                    <IP src>                   |
-			0x00, 0x00, 0x00, 0x00, // |                    <IP dst>                   |
-			0x00, 0x00, 0x00, 0x00, // |      <UDP src>         |       <UDP dst>      |
-			0x00, 0x00, 0x00, 0x00  // |      <UDP len>         |       <UDP crc>      |
+		.preamble = {               //  IPv4 and UDP headers.
+			W2E_TEMPLATE_IPH,
+			W2E_TEMPLATE_ICMPH
 		},
 		.packet = { 0 }
 	};
+	uint8_t recv_pkt[W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE] = { 0 };
 
 	UINT packetLen;
 	WINDIVERT_ADDRESS addr;
@@ -150,7 +146,9 @@ static void w2c_client__main_loop(HANDLE w_filter)
 	int packet_v4, packet_v6;
 
 	PWINDIVERT_IPHDR ppIpHdr_pre = (PWINDIVERT_IPHDR) & (p.preamble[0]);  // Preamble IPv4 header
-	PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (p.preamble[20]); // Preamble UDP header
+	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (p.preamble[20]); // Preamble UDP header
+	PWINDIVERT_ICMPHDR ppIcmpHdr_pre = (PWINDIVERT_ICMPHDR) & (p.preamble[20]); // Preamble ICMP header
+	int sz_enc = 0;
 
 	static enum packet_type_e {
 		unknown,
@@ -162,7 +160,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 	while (!client_stop)
 	{
-		if (WinDivertRecv(w_filter, p.packet, sizeof(p.packet), &packetLen, &addr))
+		//if (WinDivertRecv(w_filter, p.packet, sizeof(p.packet), &packetLen, &addr))
+		if (WinDivertRecv(w_filter, recv_pkt, sizeof(recv_pkt), &packetLen, &addr))
 		{
 			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", packetLen);
 
@@ -179,7 +178,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 			// Parse network packet and set it's type
 			if (WinDivertHelperParsePacket(
-				p.packet,
+				recv_pkt,
 				packetLen,
 				&ppIpHdr,
 				&ppIpV6Hdr,
@@ -234,7 +233,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 				else if (ppIpV6Hdr)
 				{
 					w2e_print_error("IPv6 packet processed\n");
-					WinDivertSend(w_filter, p.packet, packetLen, NULL, &addr);
+					WinDivertSend(w_filter, recv_pkt, packetLen, NULL, &addr);
 					continue;
 				}
 
@@ -242,37 +241,40 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 				
 				/**
+				 * Encrypt payload.
+				 */
+				 //@TODO
+				sz_enc = w2e_crypto_enc(recv_pkt, p.packet, packetLen, sizeof(recv_pkt));
+
+
+				/**
 				 * Add incapsulation header.
 				 */
 
-				packetLen += W2E_PREAMBLE_SIZE;
-
 				/** New IPv4 header */
-				ppIpHdr_pre->Length = htons((u_short)packetLen);
-				ppIpHdr_pre->SrcAddr = ppIpHdr->SrcAddr; // Same src address
+				ppIpHdr_pre->Length = htons((u_short)(sz_enc + W2E_PREAMBLE_SIZE));
+				//ppIpHdr_pre->SrcAddr = ppIpHdr->SrcAddr; // Same src address
+				ppIpHdr_pre->SrcAddr = htonl(0x0A00A084); // My src address
 				ppIpHdr_pre->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
 				//ppIpHdr_pre->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
 
-				/** New UDP header */
-				ppUdpHdr_pre->SrcPort = htons(W2E_CLIENT_PORT); // Constant port - marker of encrypted traffic
-				ppUdpHdr_pre->DstPort = htons(55000); // Remote w2e server port (client-bent) // @TODO Substitute actual port
-				ppUdpHdr_pre->Length = htons((u_short)packetLen - 20); // minus IPv4 header length
+				///** New UDP header */
+				//ppUdpHdr_pre->SrcPort = htons(W2E_CLIENT_PORT); // Constant port - marker of encrypted traffic
+				//ppUdpHdr_pre->DstPort = htons(55000); // Remote w2e server port (client-bent) // @TODO Substitute actual port
+				//ppUdpHdr_pre->Length = htons((u_short)packetLen - 20); // minus IPv4 header length
 
 
-				/**
-				 * Encrypt payload.
-				 */
-				//@TODO
 
-
-				/** Recalculate CRCs (IPv4 and UDP) */
+				/** Recalculate CRCs (IPv4 and ICMP) */
 				WinDivertHelperCalcChecksums(
-					&p, packetLen, &addr,
-					(UINT64)(WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
+					&p, sz_enc + W2E_PREAMBLE_SIZE, &addr,
+					(UINT64)0LL);
+					//(UINT64)(WINDIVERT_HELPER_NO_UDP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
+					//(UINT64)(WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
 
 				/** Send modified packet */
-				WinDivertSend(w_filter, &p, packetLen, NULL, &addr);
+				WinDivertSend(w_filter, &p, sz_enc + W2E_PREAMBLE_SIZE, NULL, &addr);
 			}
 			else
 			{
@@ -309,18 +311,34 @@ int main(int argc, char* argv[])
 		w2e_print_error("Crypto init error\n");
 		return 1;
 	}
+
+#if 0
 	//uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm123END";
-	uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890END";
-	uint8_t c[129] = { 0 };
+	//uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890END";
+	uint8_t c[] = {
+  0x13, 0x7b, 0x92, 0x41,
+  0xc4, 0x24, 0x26, 0x4d, 0x52, 0xd2, 0x81, 0x4e,
+  0x7d, 0x1a, 0x30, 0xff, 0x7c, 0x82, 0x49, 0xc2,
+  0x8f, 0xbd, 0xb2, 0x3e, 0x4f, 0x38, 0x9a, 0xc9,
+  0xad, 0x0c, 0xc4, 0xdb, 0x07, 0x3a, 0x49, 0xea,
+  0xc8, 0x6b, 0xe2, 0xfe, 0x16, 0xa5, 0xd6, 0xd9,
+  0x41, 0x16, 0x87, 0x3f, 0x52, 0x95, 0x09, 0x6e,
+  0xbc, 0x4e, 0x6f, 0x7b, 0x4f, 0x1c, 0x4a, 0x2e,
+  0x31, 0xb6, 0xec, 0x22, 0x25, 0x26, 0xd4, 0x60,
+  0x80, 0x35, 0xd9, 0x19, 0x6c, 0x2d, 0xd4, 0xc7,
+  0xcf, 0x3d, 0x27, 0xfd
+	};
+	//uint8_t c[129] = { 0 };
 	uint8_t r[129] = { 0 };
 
-	for (int i = 0; i < sizeof(p); i++)
-	{
-		printf("%02X ", p[i]);
-	}
-	printf("\n\n");
+	//for (int i = 0; i < sizeof(p); i++)
+	//{
+	//	printf("%02X ", p[i]);
+	//}
+	//printf("\n\n");
 
-	int sz = w2e_crypto_enc(p, c, sizeof(p), sizeof(c));
+	//int sz = w2e_crypto_enc(p, c, sizeof(p), sizeof(c));
+	int sz = 80;
 
 	for (int i = 0; i < sizeof(c); i++)
 	{
@@ -337,7 +355,7 @@ int main(int argc, char* argv[])
 	printf("\n\n");
 	w2e_crypto_deinit();
 	return 0;
-
+#endif /* 0 */
 
 
 	/**
@@ -356,6 +374,9 @@ int main(int argc, char* argv[])
 	w2c_client__main_loop(w_filter);
 
 
+	/**
+	 * Crypto lib deinit.
+	 */
 	w2e_crypto_deinit();
 
 	return 0;
