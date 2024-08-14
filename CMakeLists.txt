@@ -10,22 +10,47 @@ endif()
 
 project ("W2E" VERSION 0.1 LANGUAGES C)
 
+# Common
 include_directories(
 	"w2e_common"
-	"WinDivert/include"
 )
+link_directories("w2e_crypto")
 
+# Windows-specific
+if (MSVC)
+include_directories(
+	"WinDivert/include"
+	"w2e_crypto"
+)
 link_directories("WinDivert/x64")  # 64bit
 # link_directories("WinDivert/x86")  # 32bit
+endif ()
+
+# Linux-specific
+#if(UNIX)
+#include_directories(
+#	""
+#)
+#endif(UNIX)
+
 
 # CMocka download
 include(FetchCMocka.cmake)
 
 
 # CONFIG
-add_compile_definitions(W2E_DEBUG)
+include(DefineOptions.cmake)
 
 
 # Подпроекты
-add_subdirectory ("w2e_client")
-add_subdirectory ("w2e_server")
+
+add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)
+
+if (MSVC)
+add_subdirectory ("w2e_client")  # Client application (Windows)
+endif ()
+
+if(UNIX)
+add_subdirectory ("w2e_server")  # Server application (Linux)
+endif()
+
