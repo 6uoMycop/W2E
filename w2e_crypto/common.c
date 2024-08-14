@@ -6,6 +6,8 @@
  * See README for more details.
  */
 
+#if 0
+
 #include "includes.h"
 
 #include "common.h"
@@ -169,7 +171,7 @@ void inc_byte_array(u8* counter, size_t len)
 	}
 }
 
-#if 0
+
 void wpa_get_ntp_timestamp(u8* buf)
 {
 	struct os_time now;
@@ -187,7 +189,7 @@ void wpa_get_ntp_timestamp(u8* buf)
 	tmp = host_to_be32(usec);
 	os_memcpy(buf + 4, (u8*)&tmp, 4);
 }
-#endif /* 0 */
+
 
 static inline int _wpa_snprintf_hex(char* buf, size_t buf_size, const u8* data,
 	size_t len, int uppercase)
@@ -656,3 +658,4 @@ size_t merge_byte_arrays(u8* res, size_t res_len,
 
 	return len;
 }
+#endif /* 0 */

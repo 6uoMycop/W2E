@@ -14,10 +14,15 @@
 #define os_malloc(x) malloc(x)
 #define os_free(x) free(x)
 #define os_memset(x, y, z) memset(x, y, z)
+#define os_memcpy(x, y, z) memcpy(x, y, z)
+#define os_memcmp(x, y, z) memcmp(x, y, z)
+#define os_strdup(x) strdup(x)
+#define os_strlen(x) strlen(x)
+#define os_strrchr(x, y) strrchr(x, y)
 
 
 
-
+#if 0
 #if defined(__linux__) || defined(__GLIBC__)
 #include <endian.h>
 #include <byteswap.h>
@@ -69,7 +74,7 @@ static inline unsigned int bswap_32(unsigned int v)
 #define __BYTE_ORDER __LITTLE_ENDIAN
 #endif
 #endif /* CONFIG_TI_COMPILER */
-
+#endif /* 0 */
 #ifdef CONFIG_NATIVE_WINDOWS
 #include <winsock.h>
 
@@ -104,7 +109,7 @@ typedef INT16 s16;
 typedef INT8 s8;
 #define WPA_TYPES_DEFINED
 #endif /* _MSC_VER */
-
+#if 0
 #ifdef __vxworks
 typedef unsigned long long u64;
 typedef UINT32 u32;
@@ -178,7 +183,7 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 
 #endif /* __CYGWIN__ || CONFIG_NATIVE_WINDOWS */
 
-#if 0
+
 #ifndef WPA_BYTE_SWAP_DEFINED
 
 #ifndef __BYTE_ORDER
@@ -227,7 +232,7 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 
 #define WPA_BYTE_SWAP_DEFINED
 #endif /* !WPA_BYTE_SWAP_DEFINED */
-#endif /* 0 */
+
 
 /* Macros for handling unaligned memory accesses */
 
@@ -387,6 +392,7 @@ void perror(const char* s);
 
 #endif /* CONFIG_ANSI_C_EXTRA */
 
+
 #ifndef MAC2STR
 #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
@@ -420,6 +426,7 @@ typedef u32 __bitwise be32;
 typedef u32 __bitwise le32;
 typedef u64 __bitwise be64;
 typedef u64 __bitwise le64;
+#endif /* 0 */
 
 #ifndef __must_check
 #if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
@@ -429,6 +436,7 @@ typedef u64 __bitwise le64;
 #endif /* __GNUC__ */
 #endif /* __must_check */
 
+#if 0
 int hwaddr_aton(const char* txt, u8* addr);
 int hwaddr_compact_aton(const char* txt, u8* addr);
 int hwaddr_aton2(const char* txt, u8* addr);
@@ -492,5 +500,5 @@ void* __hide_aliasing_typecast(void* foo);
 #else /* CONFIG_VALGRIND */
 #define WPA_MEM_DEFINED(ptr, len) do { } while (0)
 #endif /* CONFIG_VALGRIND */
-
+#endif /* 0 */
 #endif /* COMMON_H */

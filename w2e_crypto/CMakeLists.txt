@@ -9,7 +9,7 @@ add_library (w2e_crypto STATIC
 	"aes-wrap.c"
 	"aes-gcm.c"
 	"common.h"
-	"common.c"
+#	"common.c"
 	"includes.h"
 	"aes-internal-enc.c"
 	"aes-internal-dec.c"
@@ -24,6 +24,9 @@ endif()
 
 
 if (MSVC)
-add_compile_definitions(CONFIG_NATIVE_WINDOWS)
-add_compile_definitions(_MSC_VER)
-endif ()
+	target_compile_options(w2e_crypto PRIVATE /Wall /we4702)
+	add_compile_definitions(CONFIG_NATIVE_WINDOWS)
+	add_compile_definitions(_MSC_VER)
+else()
+	target_compile_options(w2e_crypto PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()

@@ -13,8 +13,8 @@
 /**
  * Have to be global because they are passed to signal handler.
  */
-static HANDLE filters[W2E_MAX_FILTERS];
-static int filter_num = 0;
+static HANDLE g_filters[W2E_MAX_FILTERS];
+static int g_filter_num = 0;
 
 static volatile uint8_t client_stop = 0;
 
@@ -112,8 +112,10 @@ static void w2e_common__deinit_all(HANDLE* filters, int filter_num)
 
 static void w2c_client__sigint_handler(int sig)
 {
+	(void)sig;
+	
 	client_stop = 1;
-	w2e_common__deinit_all(filters, filter_num);
+	w2e_common__deinit_all(g_filters, g_filter_num);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
@@ -147,8 +149,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 	PWINDIVERT_UDPHDR ppUdpHdr;
 	int packet_v4, packet_v6;
 
-	PWINDIVERT_IPHDR ppIpHdr_pre = &(p.preamble[0]);  // Preamble IPv4 header
-	PWINDIVERT_UDPHDR ppUdpHdr_pre = &(p.preamble[20]); // Preamble UDP header
+	PWINDIVERT_IPHDR ppIpHdr_pre = (PWINDIVERT_IPHDR) & (p.preamble[0]);  // Preamble IPv4 header
+	PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (p.preamble[20]); // Preamble UDP header
 
 	static enum packet_type_e {
 		unknown,
@@ -246,7 +248,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 				packetLen += W2E_PREAMBLE_SIZE;
 
 				/** New IPv4 header */
-				ppIpHdr_pre->Length = htons(packetLen);
+				ppIpHdr_pre->Length = htons((u_short)packetLen);
 				ppIpHdr_pre->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 				ppIpHdr_pre->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
 				//ppIpHdr_pre->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
@@ -255,7 +257,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 				/** New UDP header */
 				ppUdpHdr_pre->SrcPort = htons(W2E_CLIENT_PORT); // Constant port - marker of encrypted traffic
 				ppUdpHdr_pre->DstPort = htons(55000); // Remote w2e server port (client-bent) // @TODO Substitute actual port
-				ppUdpHdr_pre->Length = htons(packetLen - 20); // minus IPv4 header length
+				ppUdpHdr_pre->Length = htons((u_short)packetLen - 20); // minus IPv4 header length
 
 
 				/**
@@ -289,6 +291,9 @@ static void w2c_client__main_loop(HANDLE w_filter)
  */
 int main(int argc, char* argv[])
 {
+	(void)argc;
+	(void)argv;
+
 	HANDLE w_filter = NULL;
 
 	w2e_log_printf("Client is starting...\n");
@@ -299,7 +304,7 @@ int main(int argc, char* argv[])
 	 * Crypto lib init.
 	 */
 
-	if (w2e_crypto_init("0000000000000000", W2E_KEY_LEN) != 0)
+	if (w2e_crypto_init((const u8*)"0000000000000000", W2E_KEY_LEN) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
 		return 1;
@@ -307,8 +312,28 @@ int main(int argc, char* argv[])
 	uint8_t p[] = "START67890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuEND";
 	uint8_t c[129] = { 0 };
 	uint8_t r[129] = { 0 };
-	w2e_crypto_enc(p, c);
-	w2e_crypto_dec(c, r);
+
+	for (int offset = 0; offset < 64; offset += W2E_KEY_LEN)
+	{
+		w2e_crypto_enc(&(p[offset]), &(c[offset]));
+
+		for (int i = 0; i < W2E_KEY_LEN; i++)
+		{
+			printf("  %02X ", c[offset + i]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+	for (int offset = 0; offset < 64; offset += W2E_KEY_LEN)
+	{
+		w2e_crypto_dec(&(c[offset]), &(r[offset]));
+		//for (int i = 0; i < W2E_KEY_LEN; i++)
+		//{
+		//	printf("%c %02X ", r[offset + i], r[offset + i]);
+		//}
+		printf("%s\n", r);
+		printf("\n");
+	}
 	w2e_crypto_deinit();
 	return 0;
 
@@ -317,15 +342,15 @@ int main(int argc, char* argv[])
 	/**
 	 * Filters initialization.
 	 */
-	//filters[filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	//filters[filter_num] = w2e_common__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	filters[filter_num] = w2e_common__init(
+	//g_filters[g_filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	//g_filters[g_filter_num] = w2e_common__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	g_filters[g_filter_num] = w2e_common__init(
 		" !loopback"
 		" and ip"
 		" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53)"
 		, 0);
-	w_filter = filters[filter_num];
-	filter_num++;
+	w_filter = g_filters[g_filter_num];
+	g_filter_num++;
 
 	w2c_client__main_loop(w_filter);
 

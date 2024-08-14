@@ -74,7 +74,7 @@ static void gf_mult(const u8* x, const u8* y, u8* z)
 	{
 		for (j = 0; j < 8; j++)
 		{
-			if (x[i] & BIT(7 - j))
+			if (x[i] & (1 << (7 - j)))
 			{
 				/* Z_(i + 1) = Z_i XOR V_i */
 				xor_block(z, v);
