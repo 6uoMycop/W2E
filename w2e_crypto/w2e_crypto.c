@@ -1,6 +1,3 @@
-#include "w2e_crypto.h"
-#include "w2e_crypto.h"
-#include "w2e_crypto.h"
 /*****************************************************************//**
  * \file   w2e_crypto.h
  * \brief  Cross-platform cryptographic interface

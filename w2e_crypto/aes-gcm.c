@@ -7,11 +7,9 @@
  * See README for more details.
  */
 
-#include "includes.h"
 
-#include "common.h"
 #include "aes.h"
-//#include "aes_wrap.h"
+
 
 static void inc32(u8* block)
 {
