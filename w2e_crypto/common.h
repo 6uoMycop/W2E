@@ -75,17 +75,20 @@ static inline unsigned int bswap_32(unsigned int v)
 #endif
 #endif /* CONFIG_TI_COMPILER */
 #endif /* 0 */
+
 #ifdef CONFIG_NATIVE_WINDOWS
 #include <winsock.h>
 
-typedef int socklen_t;
+//typedef int socklen_t;
 
-#ifndef MSG_DONTWAIT
-#define MSG_DONTWAIT 0 /* not supported */
-#endif
+//#ifndef MSG_DONTWAIT
+//#define MSG_DONTWAIT 0 /* not supported */
+//#endif
 
 #endif /* CONFIG_NATIVE_WINDOWS */
 
+
+#if 0
 #ifdef _MSC_VER
 #define inline __inline
 
@@ -94,7 +97,7 @@ typedef int socklen_t;
 #undef close
 #define close closesocket
 #endif /* _MSC_VER */
-
+#endif /* 0 */
 
 /* Define platform specific integer types */
 
@@ -109,6 +112,17 @@ typedef INT16 s16;
 typedef INT8 s8;
 #define WPA_TYPES_DEFINED
 #endif /* _MSC_VER */
+#include <stdint.h>
+typedef uint64_t u64;
+typedef uint32_t u32;
+typedef uint16_t u16;
+typedef uint8_t u8;
+typedef int64_t s64;
+typedef int32_t s32;
+typedef int16_t s16;
+typedef int8_t s8;
+#else
+
 #if 0
 #ifdef __vxworks
 typedef unsigned long long u64;
@@ -232,7 +246,7 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 
 #define WPA_BYTE_SWAP_DEFINED
 #endif /* !WPA_BYTE_SWAP_DEFINED */
-
+#endif /* 0 */
 
 /* Macros for handling unaligned memory accesses */
 
@@ -300,7 +314,7 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 			 (((u64) (a)[3]) << 24) | (((u64) (a)[2]) << 16) | \
 			 (((u64) (a)[1]) << 8) | ((u64) (a)[0]))
 
-
+#if 0
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
