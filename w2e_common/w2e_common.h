@@ -14,6 +14,12 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#ifdef _MSC_VER
+#include <winsock.h>
+#else
+
+#endif // _MSC_VER
+
 
 /**
  * Default constants.

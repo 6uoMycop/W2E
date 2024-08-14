@@ -12,7 +12,6 @@
 
 
 #include <signal.h>
-#include <winsock.h>
 
 #include "w2e_common.h"
 #include "w2e_crypto.h"
@@ -52,7 +51,8 @@
 // |          <id>          |       <seq>          |
 #define W2E_TEMPLATE_ICMPH \
 0x08, 0x00, 0x00, 0x00,\
-0x00, 0x00, 0x00, 0x00
+0x01, 0x02, 0x02, 0x01
+//0x00, 0x00, 0x00, 0x00
 
 
 /**
