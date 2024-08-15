@@ -132,6 +132,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	u_int32_t id;
 	struct nfqnl_msg_packet_hdr* ph;
 	unsigned char* pkt;
+	struct pkt_buff* pktb;
 	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1;
 	struct icmphdr* hdr_icmp, *hdr_pre_icmp = &(pkt1[20]);
 	u_int32_t len_recv;
@@ -147,7 +148,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	len_recv = nfq_get_payload(nfa, &pkt);
 	if (len_recv < 0)
 	{
-		w2e_print_error("error during nfq_open()\n");
+		w2e_print_error("nfq_get_payload() error\n");
 		w2e_ctrs.err_rx++;
 		goto send_unmodified;
 	}
@@ -157,9 +158,11 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	/**
 	 * Packet processing.
 	 */
-	hdr_ip = nfq_ip_get_hdr(pkt);
+	pktb = pktb_alloc(AF_INET, data, len_recv, 0);
+	hdr_ip = nfq_ip_get_hdr(pktb);
 	if (hdr_ip->version != 4)
 	{
+		pktb_free(pktb);
 		goto send_unmodified;
 	}
 
@@ -172,6 +175,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	) /* Decapsulation needed */
 	{
 		w2e_ctrs.decap++;
+		w2e_dbg_printf("Decap\n");
 
 		/**
 		 * Decrypt payload.
@@ -182,11 +186,13 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		/**
 		 * Send modified packet.
 		 */
+		pktb_free(pktb);
 		goto send_modified;
 	}
 	else /* Encapsulation needed */
 	{
 		w2e_ctrs.encap++;
+		w2e_dbg_printf("Encap\n");
 
 		/**
 		 * Encrypt payload.
@@ -224,6 +230,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		/**
 		 * Send modified packet.
 		 */
+		pktb_free(pktb);
 		goto send_modified;
 	}
 
