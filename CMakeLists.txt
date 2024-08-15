@@ -13,6 +13,7 @@ project ("W2E" VERSION 0.1 LANGUAGES C)
 # Common
 include_directories(
 	"w2e_common"
+	"w2e_crypto"
 )
 link_directories("w2e_crypto")
 
@@ -20,7 +21,6 @@ link_directories("w2e_crypto")
 if (MSVC)
 include_directories(
 	"WinDivert/include"
-	"w2e_crypto"
 )
 link_directories("WinDivert/x64")  # 64bit
 # link_directories("WinDivert/x86")  # 32bit
@@ -34,8 +34,10 @@ endif ()
 #endif(UNIX)
 
 
+if (MSVC)
 # CMocka download
 include(FetchCMocka.cmake)
+endif ()
 
 
 # CONFIG

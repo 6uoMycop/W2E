@@ -131,7 +131,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	//u_int32_t id = print_pkt(nfa);
 	u_int32_t id;
 	struct nfqnl_msg_packet_hdr* ph;
-	unsigned char* pkt = (unsigned char*)data;
+	unsigned char* pkt;
 	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1;
 	struct icmphdr* hdr_icmp, *hdr_pre_icmp = &(pkt1[20]);
 	u_int32_t len_recv;
@@ -163,12 +163,12 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		goto send_unmodified;
 	}
 
-	hdr_icmp = &(pkt[hdr_ip->ihl * 4])
+	hdr_icmp = &(pkt[hdr_ip->ihl * 4]);
 
 	if (hdr_ip->protocol == 0x01 // ICMP
 		&& hdr_icmp->type == W2E_ICMP_TYPE_MARKER
 		&& hdr_icmp->code == W2E_ICMP_CODE_MARKER
-		&& hdr_icmp->gateway == W2E_ICMP_BODY_MARKER
+		&& hdr_icmp->un.gateway == W2E_ICMP_BODY_MARKER
 	) /* Decapsulation needed */
 	{
 		w2e_ctrs.decap++;
@@ -209,16 +209,16 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		memcpy(&(pkt1[sizeof(w2e_template_iph)]), w2e_template_icmph, sizeof(w2e_template_icmph));
 
 		/** New IPv4 header */
-		hdr_pre_ip->Length = htons((u_short)(len_send));
-		hdr_pre_ip->SrcAddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
-		hdr_pre_ip->DstAddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
+		hdr_pre_ip->tot_len = htons((u_short)(len_send));
+		hdr_pre_ip->saddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
+		hdr_pre_ip->daddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
 		//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 		//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
 		/**
 		 * Recalculate CRCs (IPv4 and ICMP).
 		 */
-		hdr_pre_icmp->checksum = htons((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp));
+		hdr_pre_icmp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
 		nfq_ip_set_checksum(hdr_pre_ip);
 
 		/**

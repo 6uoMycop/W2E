@@ -16,13 +16,14 @@ else()
 endif()
 
 target_link_libraries(w2e_server
+	PUBLIC -lw2e_crypto
 	PUBLIC -lnetfilter_queue
 	PUBLIC -lpthread
 	PUBLIC -lrt
 	PUBLIC -lm
-	PRIVATE cmocka-static
+#	PRIVATE cmocka-static
 )
 
 
-enable_testing()
-add_test(NAME w2e_server COMMAND w2e_server)
+#enable_testing()
+#add_test(NAME w2e_server COMMAND w2e_server)
