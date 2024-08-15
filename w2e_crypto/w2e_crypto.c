@@ -114,7 +114,6 @@ void w2e_crypto_dec(const u8* crypt, u8* plain, int sz_fact)
 int w2e_crypto_dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total)
 {
 	int sz_real = 0;
-	u16 pkt_len = 0;
 
 	/**
 	 * Decrypt first block. First 20 bytes are always valid
@@ -126,7 +125,6 @@ int w2e_crypto_dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total)
 	 * It is 2nd and 3rd IPv4 header bytes.
 	 */
 	sz_real = ntohs(*(u16*)(&(plain[2])));
-	pkt_len = sz_real - key_len;
 	w2e_dbg_printf("Encapsulated payload length=%d\n", sz_real);
 
 	/**

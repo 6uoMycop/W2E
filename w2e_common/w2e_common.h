@@ -17,6 +17,7 @@
 #ifdef _MSC_VER // Windows
 #include <winsock.h>
 #else // Linux
+#include <netinet/in.h>
 #if 0
 #include <sys/mman.h>
 #endif /* 0 */
