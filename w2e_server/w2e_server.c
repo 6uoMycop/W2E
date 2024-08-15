@@ -10,6 +10,7 @@
 #include "w2e_server.h"
 
 
+#if 0
 static u_int32_t print_pkt(struct nfq_data* tb)
 {
 	int id = 0;
@@ -78,17 +79,160 @@ static u_int32_t print_pkt(struct nfq_data* tb)
 
 	return id;
 }
+#endif /* 0 */
+
+
+/**
+ * Global counters.
+ */
+w2e_ctrs_t w2e_ctrs = { 0 };
+
+
+static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
+
+
+static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
+{
+	uint32_t checksum = 0;
+	unsigned char* end = buffer + bytes;
+
+	// odd bytes add last byte and reset end
+	if (bytes % 2 == 1)
+	{
+		end = buffer + bytes - 1;
+		checksum += (*end) << 8;
+	}
+
+	// add words of two bytes, one by one
+	while (buffer < end)
+	{
+		checksum += buffer[0] << 8;
+		checksum += buffer[1];
+		buffer += 2;
+	}
+
+	// add carry if any
+	uint32_t carray = checksum >> 16;
+	while (carray)
+	{
+		checksum = (checksum & 0xffff) + carray;
+		carray = checksum >> 16;
+	}
+
+	// negate it
+	checksum = ~checksum;
+
+	return checksum & 0xffff;
+}
 
 
 static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
-	u_int32_t id = print_pkt(nfa);
-	//u_int32_t id;
-
+	//u_int32_t id = print_pkt(nfa);
+	u_int32_t id;
 	struct nfqnl_msg_packet_hdr* ph;
+	unsigned char* pkt = (unsigned char*)data;
+	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1;
+	struct icmphdr* hdr_icmp, *hdr_pre_icmp = &(pkt1[20]);
+	u_int32_t len_recv;
+	u_int32_t len_send;
+
+	w2e_ctrs.total_rx++;
+
+	w2e_dbg_printf("entering callback\n");
+
 	ph = nfq_get_msg_packet_hdr(nfa);
 	id = ntohl(ph->packet_id);
-	w2e_dbg_printf("entering callback\n");
+
+	len_recv = nfq_get_payload(nfa, &pkt);
+	if (len_recv < 0)
+	{
+		w2e_print_error("error during nfq_open()\n");
+		w2e_ctrs.err_rx++;
+		goto send_unmodified;
+	}
+
+	w2e_dbg_printf("payload_len=%d\n", len_recv);
+
+	/**
+	 * Packet processing.
+	 */
+	hdr_ip = nfq_ip_get_hdr(pkt);
+	if (hdr_ip->version != 4)
+	{
+		goto send_unmodified;
+	}
+
+	hdr_icmp = &(pkt[hdr_ip->ihl * 4])
+
+	if (hdr_ip->protocol == 0x01 // ICMP
+		&& hdr_icmp->type == W2E_ICMP_TYPE_MARKER
+		&& hdr_icmp->code == W2E_ICMP_CODE_MARKER
+		&& hdr_icmp->gateway == W2E_ICMP_BODY_MARKER
+	) /* Decapsulation needed */
+	{
+		w2e_ctrs.decap++;
+
+		/**
+		 * Decrypt payload.
+		 */
+		len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[W2E_PREAMBLE_SIZE]), pkt1, len_recv - W2E_PREAMBLE_SIZE);
+
+
+		/**
+		 * Send modified packet.
+		 */
+		goto send_modified;
+	}
+	else /* Encapsulation needed */
+	{
+		w2e_ctrs.encap++;
+
+		/**
+		 * Encrypt payload.
+		 */
+		len_send = w2e_crypto_enc(
+			pkt,
+			&(pkt1[W2E_PREAMBLE_SIZE]),
+			len_recv,
+			W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
+
+		len_send += W2E_PREAMBLE_SIZE;
+
+		/**
+		 * Add incapsulation header.
+		 */
+
+		 /** IPv4 header */
+		memcpy(pkt1, w2e_template_iph, sizeof(w2e_template_iph));
+		/** ICMPv4 header */
+		memcpy(&(pkt1[sizeof(w2e_template_iph)]), w2e_template_icmph, sizeof(w2e_template_icmph));
+
+		/** New IPv4 header */
+		hdr_pre_ip->Length = htons((u_short)(len_send));
+		hdr_pre_ip->SrcAddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
+		hdr_pre_ip->DstAddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
+		//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
+		//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
+
+		/**
+		 * Recalculate CRCs (IPv4 and ICMP).
+		 */
+		hdr_pre_icmp->checksum = htons((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp));
+		nfq_ip_set_checksum(hdr_pre_ip);
+
+		/**
+		 * Send modified packet.
+		 */
+		goto send_modified;
+	}
+
+send_modified:
+	w2e_ctrs.total_tx++;
+	return nfq_set_verdict(qh, id, NF_ACCEPT, len_send, pkt1);
+
+send_unmodified:
+	w2e_ctrs.total_tx++;
 	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 

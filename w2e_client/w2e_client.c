@@ -18,6 +18,11 @@ static int g_filter_num = 0;
 
 static volatile uint8_t client_stop = 0;
 
+/**
+ * Global counters.
+ */
+w2e_ctrs_t w2e_ctrs = { 0 };
+
 
 static HANDLE w2e_common__init(char* filter, UINT64 flags)
 {
@@ -121,87 +126,191 @@ static void w2c_client__sigint_handler(int sig)
 }
 
 
+static BOOL w2e_pkt_send(
+	HANDLE handle,
+	const VOID* pPacket,
+	UINT packetLen,
+	UINT* pSendLen,
+	const WINDIVERT_ADDRESS* pAddr)
+{
+	DWORD errorcode = 0;
+
+	w2e_ctrs.total_tx++; /* Send attempted */
+
+	if (WinDivertSend(handle, pPacket, packetLen, pSendLen, pAddr))
+	{
+		w2e_ctrs.ok_tx++; /* Send success */
+	}
+	else
+	{
+		errorcode = GetLastError();
+		w2e_print_error("Error sending unmodified packet! 0x%X\n", errorcode);
+		w2e_ctrs.err_tx++;
+
+		switch (errorcode)
+		{
+		case 1232:
+		{
+			w2e_print_error(
+				"ERROR_HOST_UNREACHABLE: This error occurs when an impostor packet "
+				"(with pAddr->Impostor set to 1) is injected and the ip.TTL or ipv6. "
+				"HopLimit field goes to zero. This is a defense of \"last resort\" against "
+				"infinite loops caused by impostor packets. \n");
+			break;
+		}
+		default:
+		{
+			w2e_print_error("Unexpected error 0x%X\n", errorcode);
+			break;
+		}
+		}
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
 static void w2c_client__main_loop(HANDLE w_filter)
 {
-	static w2e_pkt_t pkt1 = {
-		.split = {
-			.p_1 = {               //  IPv4 and UDP headers.
-				W2E_TEMPLATE_IPH,
-				W2E_TEMPLATE_ICMPH
-			},
-			.p0 = { 0 },
-			.p1 = { 0 }
-		}
-	};
-	static w2e_pkt_t pkt2 = {
-		.split = {
-			.p_1 = {               //  IPv4 and UDP headers.
-				W2E_TEMPLATE_IPH,
-				W2E_TEMPLATE_ICMPH
-			},
-			.p0 = { 0 },
-			.p1 = { 0 }
-		}
-	};
+	DWORD					errorcode = 0;
 
-	UINT packetLen;
-	WINDIVERT_ADDRESS addr;
-	PVOID packet_data;
-	UINT packet_dataLen;
+	UINT					len_recv;
+	UINT					len_send;
 
-	PWINDIVERT_IPHDR ppIpHdr;
-	PWINDIVERT_IPV6HDR ppIpV6Hdr;
-	PWINDIVERT_TCPHDR ppTcpHdr;
-	PWINDIVERT_UDPHDR ppUdpHdr;
-	PWINDIVERT_ICMPHDR ppIcmpHdr;
-	PWINDIVERT_ICMPV6HDR ppIcmpv6Hdr;
+	WINDIVERT_ADDRESS		addr;
+	UINT8					proto;
 
-	PWINDIVERT_IPHDR ppIpHdr_pre = (PWINDIVERT_IPHDR) & (pkt1.split.p_1[0]);  // Preamble IPv4 header
-	PWINDIVERT_ICMPHDR ppIcmpHdr_pre = (PWINDIVERT_ICMPHDR) & (pkt1.split.p_1[20]); // Preamble ICMP header
-	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (pkt1.split.p_1[20]); // Preamble UDP header
-	int sz_real = 0;
+	PWINDIVERT_IPHDR		hdr_ip;
+	PWINDIVERT_ICMPHDR		hdr_icmp;
+#if 0
+	PWINDIVERT_IPV6HDR		hdr_ipv6;
+	PWINDIVERT_ICMPV6HDR	hdr_icmpv6;
+	PWINDIVERT_TCPHDR		hdr_tcp;
+	PWINDIVERT_UDPHDR		hdr_udp;
+#endif /* 0 */
 
-	static enum packet_type_e {
-		unknown,
-		ipv4_tcp, ipv4_tcp_data, ipv4_udp_data, ipv4_icmp_data,
-		ipv6_tcp, ipv6_tcp_data, ipv6_udp_data
-	} packet_type;
+	PVOID					data;
+	UINT					len_data;
+
+	static uint8_t			pkt[2][W2E_MAX_PACKET_SIZE] = { 0 };
+
+	PWINDIVERT_IPHDR		hdr_pre_ip		= (PWINDIVERT_IPHDR)	& (pkt[1][0]);  // Preamble IPv4 header
+	PWINDIVERT_ICMPHDR		hdr_pre_icmp	= (PWINDIVERT_ICMPHDR)	& (pkt[1][20]); // Preamble ICMP header
+	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (pkt[1][20]); // Preamble UDP header
 
 	w2e_log_printf("Client loop operating\n");
 
 	while (!client_stop)
 	{
-		//if (WinDivertRecv(w_filter, p.packet, sizeof(p.packet), &packetLen, &addr))
-		if (WinDivertRecv(w_filter, recv_pkt, sizeof(recv_pkt), &packetLen, &addr))
+		/**
+		 * Receive packet.
+		 */
+		if (WinDivertRecv(w_filter, pkt[0], sizeof(pkt[0]), &len_recv, &addr))
 		{
-			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", packetLen);
+			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
+			w2e_ctrs.total_rx++; /* RX succeeded */
 
-			//should_reinject = 1;
-			//should_recalc_checksum = 0;
-			//sni_ok = 0;
+			hdr_ip			= (PWINDIVERT_IPHDR)NULL;
+			hdr_icmp		= (PWINDIVERT_TCPHDR)NULL;
+#if 0
+			hdr_ipv6		= (PWINDIVERT_IPV6HDR)NULL;
+			hdr_icmpv6		= (PWINDIVERT_UDPHDR)NULL;
+			hdr_tcp			= (PWINDIVERT_ICMPHDR)NULL;
+			hdr_udp			= (PWINDIVERT_UDPHDR)NULL;
+#endif /* 0 */
 
-			ppIpHdr = (PWINDIVERT_IPHDR)NULL;
-			ppIpV6Hdr = (PWINDIVERT_IPV6HDR)NULL;
-			ppTcpHdr = (PWINDIVERT_TCPHDR)NULL;
-			ppUdpHdr = (PWINDIVERT_UDPHDR)NULL;
-			ppIcmpHdr = (PWINDIVERT_ICMPHDR)NULL;
-			packet_type = unknown;
-
-			// Parse network packet and set it's type
+			/**
+			 * Parse packet.
+			 */
 			if (WinDivertHelperParsePacket(
-				recv_pkt,
-				packetLen,
-				&ppIpHdr,
-				&ppIpV6Hdr,
+				pkt[0],
+				len_recv,
+				&hdr_ip,
+				NULL, //&hdr_ipv6,
+				&proto,
+				&hdr_icmp,
+				NULL, //&hdr_icmpv6,
+				NULL, //&hdr_tcp,
+				NULL, //&hdr_udp,
+				&data,
+				&len_data,
 				NULL,
-				&ppIcmpHdr,
-				NULL,
-				&ppTcpHdr,
-				&ppUdpHdr,
-				&packet_data,
-				&packet_dataLen,
-				NULL, NULL))
+				NULL))
 			{
+				w2e_ctrs.ok_rx++;
+
+				if (hdr_ip)
+				{
+					if (hdr_icmp && data
+						// && hdr_icmp->Type == W2E_ICMP_TYPE_MARKER // надо вернуть потом это
+						&& hdr_icmp->Code == W2E_ICMP_CODE_MARKER
+						&& hdr_icmp->Body == W2E_ICMP_BODY_MARKER
+					) /* Decapsulation needed */
+					{
+						w2e_ctrs.decap++;
+
+						/**
+						 * Decrypt payload.
+						 */
+						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
+
+
+						/**
+						 * Send modified packet.
+						 */
+						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+					}
+					else /* Encapsulation needed */
+					{
+						w2e_ctrs.encap++;
+
+						/**
+						 * Encrypt payload.
+						 */
+						len_send = w2e_crypto_enc(
+							pkt[0],
+							&(pkt[1][W2E_PREAMBLE_SIZE]),
+							len_recv,
+							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
+
+						len_send += W2E_PREAMBLE_SIZE;
+
+						/**
+						 * Add incapsulation header.
+						 */
+
+						/** IPv4 header */
+						memcpy(pkt[1], w2e_template_iph, sizeof(w2e_template_iph));
+						/** ICMPv4 header */
+						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_icmph, sizeof(w2e_template_icmph));
+
+						 /** New IPv4 header */
+						hdr_pre_ip->Length = htons((u_short)(len_send));
+						hdr_pre_ip->SrcAddr = htonl(/*0x0A00A084*/ 0xc0a832f5); // My src address
+						hdr_pre_ip->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
+						//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
+						//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
+
+						/**
+						 * Recalculate CRCs (IPv4 and ICMP).
+						 */
+						WinDivertHelperCalcChecksums(
+							pkt[1], len_send, &addr,
+							(UINT64)(WINDIVERT_HELPER_NO_UDP_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+							//(UINT64)0LL);
+
+						/**
+						 * Send modified packet.
+						 */
+						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+					}
+				}
+
+				/** Send unmodified packet */
+				w2e_pkt_send(w_filter, pkt[0], len_recv, NULL, &addr);
+
+#if 0
 				if (ppIpHdr)
 				{
 					packet_v4 = 1;
@@ -329,10 +438,37 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 				/** Send packet */
 				WinDivertSend(w_filter, &recv_pkt, packetLen, NULL, &addr);
+#endif /* 0 */
 			}
 			else
 			{
 				w2e_print_error("Error parsing packet!\n");
+				w2e_ctrs.err_rx++;
+			}
+		}
+		else
+		{
+			errorcode = GetLastError();
+			w2e_print_error("Error receiving packet! 0x%X\n", errorcode);
+			w2e_ctrs.err_rx++;
+
+			switch (errorcode)
+			{
+			case 122:
+			{
+				w2e_print_error("ERROR_INSUFFICIENT_BUFFER: The captured packet is larger than the pPacket buffer\n");
+				break;
+			}
+			case 232:
+			{
+				w2e_print_error("ERROR_NO_DATA: The handle has been shutdown using WinDivertShutdown() and the packet queue is empty.\n");
+				break;
+			}
+			default:
+			{
+				w2e_print_error("Unexpected error 0x%X\n", errorcode);
+				break;
+			}
 			}
 		}
 	}
@@ -351,7 +487,16 @@ int main(int argc, char* argv[])
 
 	w2e_log_printf("Client is starting...\n");
 
+	/**
+	 * SIGINT handler.
+	 */
 	signal(SIGINT, w2c_client__sigint_handler);
+
+	/**
+	 * shmm create.
+	 * @TODO
+	 */
+
 
 	/**
 	 * Crypto lib init.

@@ -25,26 +25,5 @@
 #define W2E_CLIENT_PORT 55888
 #endif // !W2E_CLIENT_PORT
 
-typedef struct {
-	UINT					len_total;
-	UINT					len_data;
-
-	WINDIVERT_ADDRESS		addr;
-
-	w2e_pkt_t*				pkt;
-
-	PWINDIVERT_IPHDR		hdr_ip;
-	PWINDIVERT_IPV6HDR		hdr_ipv6;
-
-	PWINDIVERT_ICMPHDR		hdr_icmp;
-	PWINDIVERT_ICMPV6HDR	hdr_icmpv6;
-
-	PWINDIVERT_TCPHDR		hdr_tcp;
-	PWINDIVERT_UDPHDR		hdr_udp;
-
-	PVOID					data;
-} w2e_client_ctx_t;
-
-
 
 #endif // __W2E_CLIENT_H

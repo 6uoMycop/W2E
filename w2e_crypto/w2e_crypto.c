@@ -60,7 +60,7 @@ void w2e_crypto_deinit()
 
 /**
  * Encrypt buffer of given size sz_fact.
- * sz_max must be equal to size of plains and crypt buffers.
+ * sz_max must be equal to size of plain and crypt buffers.
  * Add 0 padding at the end of plaintext (if sz_max affords to).
  * Returns size of resulting array in bytes.
  */
