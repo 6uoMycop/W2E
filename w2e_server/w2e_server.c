@@ -126,6 +126,67 @@ static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
 }
 
 
+/**
+ * !!! modified -- does not copy data
+ * pktb_alloc - allocate a new packet buffer
+ * \param family Indicate what family, eg. AF_BRIDGE, AF_INET, AF_INET6, ...
+ * \param data Pointer to packet data
+ * \param len Packet length
+ * \param extra Extra memory in the tail to be allocated (for mangling)
+ *
+ * This function returns a packet buffer that contains the packet data and
+ * some extra memory room in the tail (in case of requested).
+ *
+ * \return a pointer to a new queue handle or NULL on failure.
+ */
+struct pkt_buff* my_pktb_alloc(int family, void* data, size_t len, size_t extra)
+{
+	struct pkt_buff* pktb;
+	void* pkt_data;
+
+	pktb = calloc(1, sizeof(struct pkt_buff) + len + extra);
+	if (pktb == NULL)
+		return NULL;
+
+	/* Better make sure alignment is correct. */
+	pkt_data = (uint8_t*)pktb + sizeof(struct pkt_buff);
+	memcpy(pkt_data, data, len);
+
+	pktb->len = len;
+	pktb->data_len = len + extra;
+
+	pktb->head = pkt_data;
+	pktb->data = pkt_data;
+	pktb->tail = pktb->head + len;
+
+	switch (family)
+	{
+	case AF_INET:
+		pktb->network_header = pktb->data;
+		break;
+	case AF_BRIDGE:
+	{
+		struct ethhdr* ethhdr = (struct ethhdr*)pktb->data;
+
+		pktb->mac_header = pktb->data;
+
+		switch (ethhdr->h_proto)
+		{
+		case ETH_P_IP:
+			pktb->network_header = pktb->data + ETH_HLEN;
+			break;
+		default:
+			/* This protocol is unsupported. */
+			free(pktb);
+			return NULL;
+		}
+		break;
+	}
+	}
+	return pktb;
+}
+
+
 static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
 	//u_int32_t id = print_pkt(nfa);
@@ -158,8 +219,9 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	/**
 	 * Packet processing.
 	 */
-	pktb = pktb_alloc(AF_INET, data, len_recv, 0);
-	hdr_ip = nfq_ip_get_hdr(pktb);
+	//pktb = pktb_alloc(AF_INET, data, len_recv, 0);
+	//hdr_ip = nfq_ip_get_hdr(pktb);
+	hdr_ip = pkt;
 	if (hdr_ip->version != 4)
 	{
 		pktb_free(pktb);
@@ -243,6 +305,34 @@ send_unmodified:
 	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
+static void w2e_server_deinit()
+{
+
+	w2e_log_printf("closing library handle\n");
+	nfq_close(h);
+
+#ifdef INSANE
+	/* normally, applications SHOULD NOT issue this command, since
+	 * it detaches other programs/sockets from AF_INET, too ! */
+	w2e_log_printf("unbinding from AF_INET\n");
+	nfq_unbind_pf(h, AF_INET);
+#endif
+
+	w2e_log_printf("closing library handle\n");
+	nfq_close(h);
+
+	/**
+	 * Crypto lib deinit.
+	 */
+	w2e_crypto_deinit();
+}
+
+void sig_handler(int n)
+{
+	(void)n;
+	w2e_server_deinit();
+}
+
 int main(int argc, char** argv)
 {
 	struct nfq_handle* h;
@@ -252,6 +342,18 @@ int main(int argc, char** argv)
 	char buf[4096] __attribute__((aligned));
 
 	w2e_log_printf("Server is starting...\n");
+
+	signal(SIGINT, sig_handler);
+
+	/**
+	 * Crypto lib init.
+	 */
+	w2e_log_printf("crypto lib init\n");
+	if (w2e_crypto_init((const u8*)"0000000000000000", W2E_KEY_LEN) != 0)
+	{
+		w2e_print_error("Crypto init error\n");
+		return 1;
+	}
 
 	w2e_log_printf("opening library handle\n");
 	h = nfq_open();
@@ -300,19 +402,9 @@ int main(int argc, char** argv)
 		nfq_handle_packet(h, buf, rv);
 	}
 
-	w2e_log_printf("unbinding from queue 0\n");
-	nfq_destroy_queue(qh);
+	w2e_log_printf("deinit\n");
 
-#ifdef INSANE
-	/* normally, applications SHOULD NOT issue this command, since
-	 * it detaches other programs/sockets from AF_INET, too ! */
-	w2e_log_printf("unbinding from AF_INET\n");
-	nfq_unbind_pf(h, AF_INET);
-#endif
 
-	w2e_log_printf("closing library handle\n");
-	nfq_close(h);
-
-	exit(0);
+	return 0;
 }
 

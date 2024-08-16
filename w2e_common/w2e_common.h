@@ -104,7 +104,7 @@ typedef struct {
  */
 #define W2E_ICMP_TYPE_MARKER 0x08
 #define W2E_ICMP_CODE_MARKER 0x00
-#define W2E_ICMP_BODY_MARKER 0xfadedefa /* Should be symmetric, otherwise call htonl(W2E_ICMP_BODY_MARKER) */
+#define W2E_ICMP_BODY_MARKER 0xFADEDEFA /* Should be symmetric, otherwise call htonl(W2E_ICMP_BODY_MARKER) */
 
 
 /**
