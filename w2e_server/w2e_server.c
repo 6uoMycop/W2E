@@ -87,6 +87,8 @@ static u_int32_t print_pkt(struct nfq_data* tb)
  */
 w2e_ctrs_t w2e_ctrs = { 0 };
 
+static struct nfq_handle* h = NULL;
+static struct nfq_q_handle* qh = NULL;
 
 static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
@@ -123,67 +125,6 @@ static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
 	checksum = ~checksum;
 
 	return checksum & 0xffff;
-}
-
-
-/**
- * !!! modified -- does not copy data
- * pktb_alloc - allocate a new packet buffer
- * \param family Indicate what family, eg. AF_BRIDGE, AF_INET, AF_INET6, ...
- * \param data Pointer to packet data
- * \param len Packet length
- * \param extra Extra memory in the tail to be allocated (for mangling)
- *
- * This function returns a packet buffer that contains the packet data and
- * some extra memory room in the tail (in case of requested).
- *
- * \return a pointer to a new queue handle or NULL on failure.
- */
-struct pkt_buff* my_pktb_alloc(int family, void* data, size_t len, size_t extra)
-{
-	struct pkt_buff* pktb;
-	void* pkt_data;
-
-	pktb = calloc(1, sizeof(struct pkt_buff) + len + extra);
-	if (pktb == NULL)
-		return NULL;
-
-	/* Better make sure alignment is correct. */
-	pkt_data = (uint8_t*)pktb + sizeof(struct pkt_buff);
-	memcpy(pkt_data, data, len);
-
-	pktb->len = len;
-	pktb->data_len = len + extra;
-
-	pktb->head = pkt_data;
-	pktb->data = pkt_data;
-	pktb->tail = pktb->head + len;
-
-	switch (family)
-	{
-	case AF_INET:
-		pktb->network_header = pktb->data;
-		break;
-	case AF_BRIDGE:
-	{
-		struct ethhdr* ethhdr = (struct ethhdr*)pktb->data;
-
-		pktb->mac_header = pktb->data;
-
-		switch (ethhdr->h_proto)
-		{
-		case ETH_P_IP:
-			pktb->network_header = pktb->data + ETH_HLEN;
-			break;
-		default:
-			/* This protocol is unsupported. */
-			free(pktb);
-			return NULL;
-		}
-		break;
-	}
-	}
-	return pktb;
 }
 
 
@@ -307,9 +248,8 @@ send_unmodified:
 
 static void w2e_server_deinit()
 {
-
-	w2e_log_printf("closing library handle\n");
-	nfq_close(h);
+	w2e_log_printf("unbinding from queue 0\n");
+	nfq_destroy_queue(qh);
 
 #ifdef INSANE
 	/* normally, applications SHOULD NOT issue this command, since
@@ -335,8 +275,6 @@ void sig_handler(int n)
 
 int main(int argc, char** argv)
 {
-	struct nfq_handle* h;
-	struct nfq_q_handle* qh;
 	int fd;
 	int rv;
 	char buf[4096] __attribute__((aligned));

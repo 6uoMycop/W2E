@@ -13,6 +13,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
 #include <linux/icmp.h>
