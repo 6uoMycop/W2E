@@ -243,7 +243,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 				if (hdr_ip)
 				{
 					if (hdr_icmp && data
-						// && hdr_icmp->Type == W2E_ICMP_TYPE_MARKER // надо вернуть потом это
+						&& hdr_icmp->Type == W2E_ICMP_TYPE_MARKER
 						&& hdr_icmp->Code == W2E_ICMP_CODE_MARKER
 						&& hdr_icmp->Body == W2E_ICMP_BODY_MARKER
 					) /* Decapsulation needed */
@@ -265,6 +265,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 					{
 						w2e_ctrs.encap++;
 
+						w2e_dbg_dump(len_recv, pkt[0]);
+						
 						/**
 						 * Encrypt payload.
 						 */
@@ -562,7 +564,7 @@ int main(int argc, char* argv[])
 	g_filters[g_filter_num] = w2e_common__init(
 		" !loopback"
 		" and ip"
-		" and (icmp)"
+		" and (udp.DstPort == 53 or udp.SrcPort == 53)"
 		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
 		, 0);
 	w_filter = g_filters[g_filter_num];

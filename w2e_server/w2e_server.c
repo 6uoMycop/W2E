@@ -134,7 +134,6 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	u_int32_t id;
 	struct nfqnl_msg_packet_hdr* ph;
 	unsigned char* pkt;
-	struct pkt_buff* pktb;
 	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1;
 	struct icmphdr* hdr_icmp, *hdr_pre_icmp = &(pkt1[20]);
 	u_int32_t len_recv;
@@ -152,7 +151,8 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	{
 		w2e_print_error("nfq_get_payload() error\n");
 		w2e_ctrs.err_rx++;
-		goto send_unmodified;
+		w2e_ctrs.total_tx++;
+		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 	}
 
 	w2e_dbg_printf("payload_len=%d\n", len_recv);
@@ -160,13 +160,12 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	/**
 	 * Packet processing.
 	 */
-	//pktb = pktb_alloc(AF_INET, data, len_recv, 0);
-	//hdr_ip = nfq_ip_get_hdr(pktb);
 	hdr_ip = pkt;
 	if (hdr_ip->version != 4)
 	{
 		pktb_free(pktb);
-		goto send_unmodified;
+		w2e_ctrs.total_tx++;
+		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 	}
 
 	hdr_icmp = &(pkt[hdr_ip->ihl * 4]);
@@ -185,12 +184,22 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		 */
 		len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[W2E_PREAMBLE_SIZE]), pkt1, len_recv - W2E_PREAMBLE_SIZE);
 
+		/**
+		 * Mangle source address.
+		 */
+		hdr_pre_ip->saddr = htonl(0x0a800002);
+
+		/**
+		 * Recalculate CRC (IPv4).
+		 */
+		nfq_ip_set_checksum(hdr_pre_ip);
 
 		/**
 		 * Send modified packet.
 		 */
-		pktb_free(pktb);
-		goto send_modified;
+		w2e_ctrs.total_tx++;
+		w2e_dbg_dump(len_send, pkt1);
+		return nfq_set_verdict(qh, id, NF_ACCEPT, len_send, pkt1);
 	}
 	else /* Encapsulation needed */
 	{
@@ -233,17 +242,10 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		/**
 		 * Send modified packet.
 		 */
-		pktb_free(pktb);
-		goto send_modified;
+		w2e_ctrs.total_tx++;
+		w2e_dbg_dump(len_send, pkt1);
+		return nfq_set_verdict(qh, id, NF_ACCEPT, len_send, pkt1);
 	}
-
-send_modified:
-	w2e_ctrs.total_tx++;
-	return nfq_set_verdict(qh, id, NF_ACCEPT, len_send, pkt1);
-
-send_unmodified:
-	w2e_ctrs.total_tx++;
-	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
 static void w2e_server_deinit()
