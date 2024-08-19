@@ -2,6 +2,11 @@
 
 **Window to Europe** — secured tunneling solution.
 
+## Scheme
+
+[![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme.svg)
+
+
 ## Server
 
 **OS:** `Linux`
