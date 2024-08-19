@@ -92,6 +92,8 @@ static struct nfq_q_handle* qh = NULL;
 
 static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
+static volatile uint8_t server_stop = 0
+
 
 static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
 {
@@ -163,7 +165,6 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	hdr_ip = pkt;
 	if (hdr_ip->version != 4)
 	{
-		pktb_free(pktb);
 		w2e_ctrs.total_tx++;
 		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 	}
@@ -250,6 +251,8 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 
 static void w2e_server_deinit()
 {
+	server_stop = 1;
+
 	w2e_log_printf("unbinding from queue 0\n");
 	nfq_destroy_queue(qh);
 
@@ -336,7 +339,7 @@ int main(int argc, char** argv)
 
 	// para el tema del loss:   while ((rv = recv(fd, buf, sizeof(buf), 0)) && rv >= 0)
 
-	while ((rv = recv(fd, buf, sizeof(buf), 0)))
+	while (!server_stop && (rv = recv(fd, buf, sizeof(buf), 0)))
 	{
 		w2e_dbg_printf("pkt received\n");
 		nfq_handle_packet(h, buf, rv);
