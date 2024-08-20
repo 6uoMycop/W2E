@@ -108,12 +108,18 @@ typedef struct {
 } w2e_ctrs_t;
 
 
-/**
- * ICMP encrypted marker.
- */
-#define W2E_ICMP_TYPE_MARKER 0x00
-#define W2E_ICMP_CODE_MARKER 0x00
-#define W2E_ICMP_BODY_MARKER 0xFADEDEFA /* Should be symmetric, otherwise call htonl(W2E_ICMP_BODY_MARKER) */
+////**
+/// * ICMP encrypted marker.
+/// */
+///#define W2E_ICMP_TYPE_MARKER 0x00
+///#define W2E_ICMP_CODE_MARKER 0x00
+///#define W2E_ICMP_BODY_MARKER 0xFADEDEFA /* Should be symmetric, otherwise call htonl(W2E_ICMP_BODY_MARKER) */
+
+
+////**
+/// * UDP encrypted marker.
+/// */
+#define W2E_UDP_SERVER_PORT_MARKER 0x1488
 
 
 /**
@@ -126,34 +132,34 @@ typedef struct {
 // IPv4 header template. <These> fields will be edited.
 // |version=4,ihl=5| tos=0  |     <packet size>    |
 // |           id=0         |R=0,DF=1,MF=0,offset=0|
-// |   TTL=255     |proto=07|         <crc>        |
+// |   TTL=255     |proto=17|         <crc>        |
 // |                    <IP src>                   |
 // |                    <IP dst>                   |
 static const uint8_t w2e_template_iph[] = {
 	0x45, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x40, 0x00,
-	0xFF, 0x01, 0x00, 0x00,
+	0xFF, 0x11, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00
 };
 
-// ICMPv4 header template. <These> fields will be edited.
-// |  type=8   |  code=0    |       <ICMP crc>     |
-// |          <id>          |       <seq>          |
-static const uint8_t w2e_template_icmph[] = {
-	0x08, 0x00, 0x00, 0x00,
-	0xfa, 0xde, 0xde, 0xfa // It is W2E_ICMP_BODY_MARKER
-	//0x00, 0x00, 0x00, 0x00
-};
+///// ICMPv4 header template. <These> fields will be edited.
+///// |  type=8   |  code=0    |       <ICMP crc>     |
+///// |          <id>          |       <seq>          |
+///static const uint8_t w2e_template_icmph[] = {
+///	0x08, 0x00, 0x00, 0x00,
+///	0xfa, 0xde, 0xde, 0xfa // It is W2E_ICMP_BODY_MARKER
+///	//0x00, 0x00, 0x00, 0x00
+///};
 
 
 // UDP header template. <These> fields will be edited.
 // |      <UDP src>         |       <UDP dst>      |
 // |      <UDP len>         |       <UDP crc>      |
-//static const uint8_t w2e_template_udph[] = {
-//	0x00, 0x00, 0x00, 0x00,
-//	0x00, 0x00, 0x00, 0x00
-//};
+static const uint8_t w2e_template_udph[] = {
+	0x00, 0x00, 0x14, 0x88, // DST here is W2E_UDP_SERVER_PORT_MARKER
+	0x00, 0x00, 0x00, 0x00
+};
 
 
 /**

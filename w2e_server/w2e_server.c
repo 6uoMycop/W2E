@@ -94,6 +94,11 @@ static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
 static volatile uint8_t server_stop = 0
 
+static struct {
+	uint32_t addr = 0; // Client address in host byte order
+} w2e_client_ctxt;
+
+
 
 static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
 {
@@ -137,13 +142,13 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	struct nfqnl_msg_packet_hdr* ph;
 	unsigned char* pkt;
 	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1;
-	struct icmphdr* hdr_icmp, *hdr_pre_icmp = &(pkt1[20]);
+	struct udphdr* hdr_udp, *hdr_pre_udp = &(pkt1[20]);
 	u_int32_t len_recv;
 	u_int32_t len_send;
 
 	w2e_ctrs.total_rx++;
 
-	w2e_dbg_printf("entering callback\n");
+	//w2e_dbg_printf("entering callback\n");
 
 	ph = nfq_get_msg_packet_hdr(nfa);
 	id = ntohl(ph->packet_id);
@@ -157,7 +162,6 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 	}
 
-	w2e_dbg_printf("payload_len=%d\n", len_recv);
 
 	/**
 	 * Packet processing.
@@ -169,16 +173,21 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 	}
 
-	hdr_icmp = &(pkt[hdr_ip->ihl * 4]);
+	hdr_udp = &(pkt[hdr_ip->ihl * 4]);
 
-	if (hdr_ip->protocol == 0x01 // ICMP
-		&& hdr_icmp->type == W2E_ICMP_TYPE_MARKER
-		&& hdr_icmp->code == W2E_ICMP_CODE_MARKER
-		&& hdr_icmp->un.gateway == W2E_ICMP_BODY_MARKER
+	w2e_dbg_printf("payload_len=%d\n", len_recv);
+
+	if (hdr_ip->protocol == 0x11 // UDP
+		&& hdr_udp->dest == W2E_UDP_SERVER_PORT_MARKER
 	) /* Decapsulation needed */
 	{
 		w2e_ctrs.decap++;
 		w2e_dbg_printf("Decap\n");
+
+		/**
+		 * Get client's IP.
+		 */
+		w2e_client_ctxt.addr = ntohl(hdr_ip->saddr);
 
 		/**
 		 * Decrypt payload.
@@ -216,7 +225,6 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 			len_recv,
 			W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
 
-		len_send += W2E_PREAMBLE_SIZE;
 
 		/**
 		 * Add incapsulation header.
@@ -224,13 +232,25 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 
 		 /** IPv4 header */
 		memcpy(pkt1, w2e_template_iph, sizeof(w2e_template_iph));
-		/** ICMPv4 header */
-		memcpy(&(pkt1[sizeof(w2e_template_iph)]), w2e_template_icmph, sizeof(w2e_template_icmph));
+		/** UDP header */
+		memset(&(pkt1[sizeof(w2e_template_iph)]), 0, sizeof(w2e_template_udph));
+		//memcpy(&(pkt1[sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
+
+
+		/** New UDP header */
+		hdr_pre_udp->dest = htons(0x8880);
+		hdr_pre_udp->source = htons(0x1488);
+		hdr_pre_udp->len = htons(len_send + sizeof(w2e_template_udph));
+
+
+		len_send += W2E_PREAMBLE_SIZE;
+
 
 		/** New IPv4 header */
 		hdr_pre_ip->tot_len = htons((u_short)(len_send));
 		hdr_pre_ip->saddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
-		hdr_pre_ip->daddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
+		hdr_pre_ip->daddr = htonl(w2e_client_ctxt.addr); // Remote w2e client address
+		//hdr_pre_ip->daddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
 		//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 		//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 

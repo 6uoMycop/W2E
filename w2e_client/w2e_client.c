@@ -182,13 +182,13 @@ static void w2c_client__main_loop(HANDLE w_filter)
 	UINT8					proto;
 
 	PWINDIVERT_IPHDR		hdr_ip;
-	PWINDIVERT_ICMPHDR		hdr_icmp;
 #if 0
 	PWINDIVERT_IPV6HDR		hdr_ipv6;
+	PWINDIVERT_ICMPHDR		hdr_icmp;
 	PWINDIVERT_ICMPV6HDR	hdr_icmpv6;
 	PWINDIVERT_TCPHDR		hdr_tcp;
-	PWINDIVERT_UDPHDR		hdr_udp;
 #endif /* 0 */
+	PWINDIVERT_UDPHDR		hdr_udp;
 
 	PVOID					data;
 	UINT					len_data;
@@ -196,8 +196,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 	static uint8_t			pkt[2][W2E_MAX_PACKET_SIZE] = { 0 };
 
 	PWINDIVERT_IPHDR		hdr_pre_ip		= (PWINDIVERT_IPHDR)	& (pkt[1][0]);  // Preamble IPv4 header
-	PWINDIVERT_ICMPHDR		hdr_pre_icmp	= (PWINDIVERT_ICMPHDR)	& (pkt[1][20]); // Preamble ICMP header
-	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (pkt[1][20]); // Preamble UDP header
+	PWINDIVERT_UDPHDR		hdr_pre_udp		= (PWINDIVERT_UDPHDR)	& (pkt[1][20]); // Preamble UDP header
+	//PWINDIVERT_ICMPHDR		hdr_pre_icmp	= (PWINDIVERT_ICMPHDR)	& (pkt[1][20]); // Preamble ICMP header
 
 	w2e_log_printf("Client loop operating\n");
 
@@ -212,13 +212,13 @@ static void w2c_client__main_loop(HANDLE w_filter)
 			w2e_ctrs.total_rx++; /* RX succeeded */
 
 			hdr_ip			= (PWINDIVERT_IPHDR)NULL;
-			hdr_icmp		= (PWINDIVERT_TCPHDR)NULL;
 #if 0
 			hdr_ipv6		= (PWINDIVERT_IPV6HDR)NULL;
+			hdr_icmp = (PWINDIVERT_TCPHDR)NULL;
 			hdr_icmpv6		= (PWINDIVERT_UDPHDR)NULL;
 			hdr_tcp			= (PWINDIVERT_ICMPHDR)NULL;
-			hdr_udp			= (PWINDIVERT_UDPHDR)NULL;
 #endif /* 0 */
+			hdr_udp			= (PWINDIVERT_UDPHDR)NULL;
 
 			/**
 			 * Parse packet.
@@ -229,10 +229,10 @@ static void w2c_client__main_loop(HANDLE w_filter)
 				&hdr_ip,
 				NULL, //&hdr_ipv6,
 				&proto,
-				&hdr_icmp,
+				NULL, //&hdr_icmp,
 				NULL, //&hdr_icmpv6,
 				NULL, //&hdr_tcp,
-				NULL, //&hdr_udp,
+				&hdr_udp,
 				&data,
 				&len_data,
 				NULL,
@@ -242,10 +242,10 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 				if (hdr_ip)
 				{
-					if (hdr_icmp && data
-						&& hdr_icmp->Type == W2E_ICMP_TYPE_MARKER
-						&& hdr_icmp->Code == W2E_ICMP_CODE_MARKER
-						&& hdr_icmp->Body == W2E_ICMP_BODY_MARKER
+					if (hdr_udp && data && hdr_udp->DstPort == W2E_UDP_SERVER_PORT_MARKER
+						//&& hdr_icmp->Type == W2E_ICMP_TYPE_MARKER
+						//&& hdr_icmp->Code == W2E_ICMP_CODE_MARKER
+						//&& hdr_icmp->Body == W2E_ICMP_BODY_MARKER
 					) /* Decapsulation needed */
 					{
 						w2e_ctrs.decap++;
@@ -276,35 +276,44 @@ static void w2c_client__main_loop(HANDLE w_filter)
 							len_recv,
 							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
 
-						len_send += W2E_PREAMBLE_SIZE;
-
 						/**
 						 * Add incapsulation header.
 						 */
 
 						/** IPv4 header */
 						memcpy(pkt[1], w2e_template_iph, sizeof(w2e_template_iph));
-						/** ICMPv4 header */
-						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_icmph, sizeof(w2e_template_icmph));
+						/** UDP header */
+						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
 
-						 /** New IPv4 header */
+						/** New UDP header */
+						hdr_pre_udp->SrcPort = htons(0x8880);
+						hdr_pre_udp->Length = htons(len_send + sizeof(w2e_template_udph));
+
+
+						len_send += W2E_PREAMBLE_SIZE;
+
+
+						/** New IPv4 header */
 						hdr_pre_ip->Length = htons((u_short)(len_send));
-						hdr_pre_ip->SrcAddr = htonl(/*0x0A00A084*/ 0xc0a832f5); // My src address
+						hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
 						hdr_pre_ip->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
 						//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 						//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
+
 						/**
-						 * Recalculate CRCs (IPv4 and ICMP).
+						 * Recalculate CRCs (IPv4 and UDP).
 						 */
 						WinDivertHelperCalcChecksums(
 							pkt[1], len_send, &addr,
-							(UINT64)(WINDIVERT_HELPER_NO_UDP_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+							(UINT64)(WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+							//(UINT64)(WINDIVERT_HELPER_NO_UDP_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
 							//(UINT64)0LL);
 
 						/**
 						 * Send modified packet.
 						 */
+						w2e_dbg_dump(len_send, pkt[1]);
 						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 					}
 				}
