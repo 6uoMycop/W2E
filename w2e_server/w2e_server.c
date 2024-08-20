@@ -92,7 +92,7 @@ static struct nfq_q_handle* qh = NULL;
 
 static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
-static volatile uint8_t server_stop = 0
+static volatile uint8_t server_stop = 0;
 
 static struct {
 	uint32_t addr = 0; // Client address in host byte order
@@ -257,7 +257,9 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		/**
 		 * Recalculate CRCs (IPv4 and ICMP).
 		 */
-		hdr_pre_icmp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
+		//hdr_pre_icmp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
+		//hdr_pre_udp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
+		nfq_udp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
 		nfq_ip_set_checksum(hdr_pre_ip);
 
 		/**
