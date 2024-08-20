@@ -99,7 +99,7 @@ static struct {
 } w2e_client_ctxt = { 0 };
 
 
-
+#if 0
 static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
 {
 	uint32_t checksum = 0;
@@ -133,7 +133,7 @@ static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
 
 	return checksum & 0xffff;
 }
-
+#endif /* 0 */
 
 static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
@@ -198,6 +198,18 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		 * Mangle source address.
 		 */
 		hdr_pre_ip->saddr = htonl(0x0a800002);
+
+		/**
+		 * Transport Layer CRC of decapsulated packet.
+		 */
+		if (hdr_pre_ip->protocol == 0x11) // UDP
+		{
+			nfq_udp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
+		}
+		else if (hdr_pre_ip->protocol == 0x06) // TCP
+		{
+			nfq_tcp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
+		}
 
 		/**
 		 * Recalculate CRC (IPv4).
