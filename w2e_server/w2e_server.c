@@ -95,8 +95,8 @@ static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 static volatile uint8_t server_stop = 0;
 
 static struct {
-	uint32_t addr = 0; // Client address in host byte order
-} w2e_client_ctxt;
+	uint32_t addr; // Client address in host byte order
+} w2e_client_ctxt = { 0 };
 
 
 
@@ -175,10 +175,10 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 
 	hdr_udp = &(pkt[hdr_ip->ihl * 4]);
 
-	w2e_dbg_printf("payload_len=%d\n", len_recv);
+	w2e_dbg_printf("payload_len=%d, proto=0x%02X, (0x%04X)\n", len_recv, hdr_ip->protocol, ntohs(hdr_udp->dest));
 
 	if (hdr_ip->protocol == 0x11 // UDP
-		&& hdr_udp->dest == W2E_UDP_SERVER_PORT_MARKER
+		&& ntohs(hdr_udp->dest) == W2E_UDP_SERVER_PORT_MARKER
 	) /* Decapsulation needed */
 	{
 		w2e_ctrs.decap++;

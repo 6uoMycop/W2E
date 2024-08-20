@@ -242,12 +242,12 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 				if (hdr_ip)
 				{
-					if (hdr_udp && data && hdr_udp->DstPort == W2E_UDP_SERVER_PORT_MARKER
+					if (hdr_udp && data && !addr.Outbound && hdr_udp->DstPort == W2E_UDP_SERVER_PORT_MARKER) /* Inbound UDP with marker */
 						//&& hdr_icmp->Type == W2E_ICMP_TYPE_MARKER
 						//&& hdr_icmp->Code == W2E_ICMP_CODE_MARKER
 						//&& hdr_icmp->Body == W2E_ICMP_BODY_MARKER
-					) /* Decapsulation needed */
-					{
+						//)
+					{ /* Decapsulation needed */
 						w2e_ctrs.decap++;
 
 						/**
@@ -261,8 +261,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 */
 						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 					}
-					else /* Encapsulation needed */
-					{
+					else if (addr.Outbound) /* Any outbound traffic */
+					{ /* Encapsulation needed */
 						w2e_ctrs.encap++;
 
 						w2e_dbg_dump(len_recv, pkt[0]);
