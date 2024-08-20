@@ -573,7 +573,8 @@ int main(int argc, char* argv[])
 	g_filters[g_filter_num] = w2e_common__init(
 		" !loopback"
 		" and ip"
-		" and (udp.DstPort == 53 or udp.SrcPort == 53)"
+		" and (tcp.DstPort == 80 or udp.SrcPort == 5256)"
+		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
 		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
 		, 0);
 	w_filter = g_filters[g_filter_num];
