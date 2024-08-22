@@ -87,9 +87,20 @@ static u_int32_t print_pkt(struct nfq_data* tb)
  */
 w2e_ctrs_t w2e_ctrs = { 0 };
 
+/**
+ * TX socket.
+ */
+int sock_tx = -1;
+
+/**
+ * NFQUEUE.
+ */
 static struct nfq_handle* h = NULL;
 static struct nfq_q_handle* qh = NULL;
 
+/**
+ * Send buffer.
+ */
 static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
 static volatile uint8_t server_stop = 0;
@@ -145,6 +156,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	struct udphdr* hdr_udp, *hdr_pre_udp = &(pkt1[20]);
 	u_int32_t len_recv;
 	u_int32_t len_send;
+	struct sockaddr_in sin = { .sin_family = AF_INET, .sin_addr = { 0 } };
 
 	w2e_ctrs.total_rx++;
 
@@ -199,6 +211,11 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		 */
 		hdr_pre_ip->saddr = htonl(0x0a800002);
 
+
+		/** For send to socket */
+		sin.sin_addr.s_addr = ntohl(hdr_pre_ip->daddr);
+
+
 		/**
 		 * Transport Layer CRC of decapsulated packet.
 		 */
@@ -215,13 +232,6 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		 * Recalculate CRC (IPv4).
 		 */
 		nfq_ip_set_checksum(hdr_pre_ip);
-
-		/**
-		 * Send modified packet.
-		 */
-		w2e_ctrs.total_tx++;
-		w2e_dbg_dump(len_send, pkt1);
-		return nfq_set_verdict(qh, id, NF_ACCEPT, len_send, pkt1);
 	}
 	else /* Encapsulation needed */
 	{
@@ -266,6 +276,11 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 		//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
+
+		/** For send to socket */
+		sin.sin_addr.s_addr = htonl(w2e_client_ctxt.addr);
+
+
 		/**
 		 * Recalculate CRCs (IPv4 and ICMP).
 		 */
@@ -273,14 +288,26 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		//hdr_pre_udp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
 		nfq_udp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
 		nfq_ip_set_checksum(hdr_pre_ip);
-
-		/**
-		 * Send modified packet.
-		 */
-		w2e_ctrs.total_tx++;
-		w2e_dbg_dump(len_send, pkt1);
-		return nfq_set_verdict(qh, id, NF_ACCEPT, len_send, pkt1);
 	}
+
+	/**
+	 * Send modified packet.
+	 */
+	 w2e_ctrs.total_tx++;
+	 w2e_dbg_dump(len_send, pkt1);
+
+
+	 if (sendto(sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
+	 {
+		 perror("sendto() failed ");
+		 exit(EXIT_FAILURE);
+	 }
+
+
+	 /**
+	  * Drop original packet.
+	  */
+	 return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 }
 
 static void w2e_server_deinit()
@@ -304,6 +331,9 @@ static void w2e_server_deinit()
 	 * Crypto lib deinit.
 	 */
 	w2e_crypto_deinit();
+
+	// Close socket descriptor.
+	close(sock_tx);
 }
 
 void sig_handler(int n)
@@ -321,6 +351,23 @@ int main(int argc, char** argv)
 	w2e_log_printf("Server is starting...\n");
 
 	signal(SIGINT, sig_handler);
+
+	/**
+	 * TX raw socket init.
+	 */
+	sock_tx = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if (sock_tx < 0)
+	{
+		w2e_print_error("Socket init error\n");
+		return 1;
+	}
+
+	// Set flag so socket expects us to provide IPv4 header.
+	if (setsockopt(sock_tx, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)) < 0)
+	{
+		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
+		return 1;
+	}
 
 	/**
 	 * Crypto lib init.
