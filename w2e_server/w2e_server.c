@@ -346,7 +346,8 @@ int main(int argc, char** argv)
 {
 	int fd;
 	int rv;
-	char buf[4096] __attribute__((aligned));
+	int on = 1;
+	char buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
 
 	w2e_log_printf("Server is starting...\n");
 

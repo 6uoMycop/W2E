@@ -67,9 +67,11 @@ wsl -d <distroname>
 iptables -t raw -A PREROUTING -i ens4 -p icmp -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 
-iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p tcp --dport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
+
+iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p udp --dport 5256 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
+iptables -t raw -A PREROUTING -p tcp --sport 443 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 ```
 
 - To enable `NFQUEUE` on WSL you need to recompile WSL kernel. The following guide was tested on Debian with linux-msft-wsl-5.15.146.1 kernel.
