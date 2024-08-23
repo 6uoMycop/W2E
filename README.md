@@ -77,7 +77,7 @@ iptables -t raw -A PREROUTING -p tcp --sport 443 -i ens4 -j NFQUEUE --queue-num 
 - Enlarge MTU
 
 ```
-ip l s dev ens4 mtu 1600
+ip l s dev ens4 mtu 1500
 ```
 
 - To enable `NFQUEUE` on WSL you need to recompile WSL kernel. The following guide was tested on Debian with linux-msft-wsl-5.15.146.1 kernel.
