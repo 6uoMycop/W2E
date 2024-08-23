@@ -242,7 +242,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 				if (hdr_ip)
 				{
-					if (hdr_udp && data && !addr.Outbound && hdr_udp->DstPort == W2E_UDP_SERVER_PORT_MARKER) /* Inbound UDP with marker */
+					if (hdr_udp && data && !addr.Outbound && hdr_udp->SrcPort == htons(W2E_UDP_SERVER_PORT_MARKER)) /* Inbound UDP with marker */
 						//&& hdr_icmp->Type == W2E_ICMP_TYPE_MARKER
 						//&& hdr_icmp->Code == W2E_ICMP_CODE_MARKER
 						//&& hdr_icmp->Body == W2E_ICMP_BODY_MARKER
@@ -255,10 +255,22 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 */
 						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
 
+						/**
+						 * Substitute local IP.
+						 */
+						hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+
+						/**
+						 * Recalculate CRCs (IPv4).
+						 */
+						WinDivertHelperCalcChecksums(
+							pkt[1], len_send, &addr,
+							(UINT64)(WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
 
 						/**
 						 * Send modified packet.
 						 */
+						w2e_dbg_dump(len_send, pkt[1]);
 						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
