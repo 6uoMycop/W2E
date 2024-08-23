@@ -39,7 +39,14 @@ int w2e_crypto_enc(u8* plain, u8* crypt, int sz_fact, int sz_max);
  * Decrypt buffer of given size sz_fact.
  * Be careful -- may contain padding
  */
-void w2e_crypto_dec(u8* crypt, const u8* plain, int sz_fact);
+void w2e_crypto_dec(const u8* crypt, u8* plain, int sz_fact);
+
+/**
+ * Decrypt payload of IPv4-encapsulated packet.
+ * I.e. obtain actual packet size from IPv4 header's total length.
+ * Returns real packet's length (without padding).
+ */
+int w2e_crypto_dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total);
 
 
 #endif // __W2E_CRYPTO_H

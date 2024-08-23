@@ -18,8 +18,13 @@ static int g_filter_num = 0;
 
 static volatile uint8_t client_stop = 0;
 
+/**
+ * Global counters.
+ */
+w2e_ctrs_t w2e_ctrs = { 0 };
 
-static HANDLE w2e_common__init(char* filter, UINT64 flags)
+
+static HANDLE w2e_client__init(char* filter, UINT64 flags)
 {
 	LPTSTR errormessage = NULL;
 	DWORD errorcode = 0;
@@ -89,7 +94,8 @@ static HANDLE w2e_common__init(char* filter, UINT64 flags)
 	return NULL;
 }
 
-static int __w2e_common__deinit(HANDLE handle)
+
+static int __w2e_client__deinit(HANDLE handle)
 {
 	if (handle)
 	{
@@ -100,12 +106,13 @@ static int __w2e_common__deinit(HANDLE handle)
 	return FALSE;
 }
 
-static void w2e_common__deinit_all(HANDLE* filters, int filter_num)
+
+static void w2e_client__deinit_all(HANDLE* filters, int filter_num)
 {
 	w2e_log_printf("Deinitialize...\n");
 	for (int i = 0; i < filter_num; i++)
 	{
-		__w2e_common__deinit(filters[i]);
+		__w2e_client__deinit(filters[i]);
 	}
 }
 
@@ -115,173 +122,225 @@ static void w2c_client__sigint_handler(int sig)
 	(void)sig;
 	
 	client_stop = 1;
-	w2e_common__deinit_all(g_filters, g_filter_num);
+	w2e_client__deinit_all(g_filters, g_filter_num);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
 
 
+static BOOL w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packetLen, UINT* pSendLen, const WINDIVERT_ADDRESS* pAddr)
+{
+	DWORD errorcode = 0;
+
+	w2e_ctrs.total_tx++; /* Send attempted */
+
+	if (WinDivertSend(handle, pPacket, packetLen, pSendLen, pAddr))
+	{
+		w2e_ctrs.ok_tx++; /* Send success */
+	}
+	else
+	{
+		errorcode = GetLastError();
+		w2e_print_error("Error sending unmodified packet! 0x%X\n", errorcode);
+		w2e_ctrs.err_tx++;
+
+		switch (errorcode)
+		{
+		case 1232:
+		{
+			w2e_print_error(
+				"ERROR_HOST_UNREACHABLE: This error occurs when an impostor packet "
+				"(with pAddr->Impostor set to 1) is injected and the ip.TTL or ipv6. "
+				"HopLimit field goes to zero. This is a defense of \"last resort\" against "
+				"infinite loops caused by impostor packets. \n");
+			break;
+		}
+		default:
+		{
+			w2e_print_error("Unexpected error 0x%X\n", errorcode);
+			break;
+		}
+		}
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
 static void w2c_client__main_loop(HANDLE w_filter)
 {
-	struct {
-		uint8_t preamble[W2E_PREAMBLE_SIZE];
-		uint8_t packet[W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE];
-	} p = {
-		.preamble = {               //  IPv4 and UDP headers.
-			W2E_TEMPLATE_IPH,
-			W2E_TEMPLATE_ICMPH
-		},
-		.packet = { 0 }
-	};
-	uint8_t recv_pkt[W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE] = { 0 };
+	DWORD					errorcode = 0;
 
-	UINT packetLen;
-	WINDIVERT_ADDRESS addr;
-	PVOID packet_data;
-	UINT packet_dataLen;
-	PWINDIVERT_IPHDR ppIpHdr;
-	PWINDIVERT_IPV6HDR ppIpV6Hdr;
-	PWINDIVERT_TCPHDR ppTcpHdr;
-	PWINDIVERT_UDPHDR ppUdpHdr;
-	int packet_v4, packet_v6;
+	UINT					len_recv;
+	UINT					len_send;
 
-	PWINDIVERT_IPHDR ppIpHdr_pre = (PWINDIVERT_IPHDR) & (p.preamble[0]);  // Preamble IPv4 header
-	//PWINDIVERT_UDPHDR ppUdpHdr_pre = (PWINDIVERT_UDPHDR) & (p.preamble[20]); // Preamble UDP header
-	PWINDIVERT_ICMPHDR ppIcmpHdr_pre = (PWINDIVERT_ICMPHDR) & (p.preamble[20]); // Preamble ICMP header
-	int sz_enc = 0;
+	WINDIVERT_ADDRESS		addr;
+	UINT8					proto;
 
-	static enum packet_type_e {
-		unknown,
-		ipv4_tcp, ipv4_tcp_data, ipv4_udp_data,
-		ipv6_tcp, ipv6_tcp_data, ipv6_udp_data
-	} packet_type;
+	PWINDIVERT_IPHDR		hdr_ip;
+	PWINDIVERT_UDPHDR		hdr_udp;
+
+	PVOID					data;
+	UINT					len_data;
+
+	static uint8_t			pkt[2][W2E_MAX_PACKET_SIZE] = { 0 };
+
+	PWINDIVERT_IPHDR		hdr_pre_ip		= (PWINDIVERT_IPHDR)	& (pkt[1][0]);  // Preamble IPv4 header
+	PWINDIVERT_UDPHDR		hdr_pre_udp		= (PWINDIVERT_UDPHDR)	& (pkt[1][20]); // Preamble UDP header
 
 	w2e_log_printf("Client loop operating\n");
 
 	while (!client_stop)
 	{
-		//if (WinDivertRecv(w_filter, p.packet, sizeof(p.packet), &packetLen, &addr))
-		if (WinDivertRecv(w_filter, recv_pkt, sizeof(recv_pkt), &packetLen, &addr))
+		/**
+		 * Receive packet.
+		 */
+		if (WinDivertRecv(w_filter, pkt[0], sizeof(pkt[0]), &len_recv, &addr))
 		{
-			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", packetLen);
+			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
+			w2e_ctrs.total_rx++; /* RX succeeded */
 
-			//should_reinject = 1;
-			//should_recalc_checksum = 0;
-			//sni_ok = 0;
+			hdr_ip			= (PWINDIVERT_IPHDR)NULL;
+			hdr_udp			= (PWINDIVERT_UDPHDR)NULL;
 
-			ppIpHdr = (PWINDIVERT_IPHDR)NULL;
-			ppIpV6Hdr = (PWINDIVERT_IPV6HDR)NULL;
-			ppTcpHdr = (PWINDIVERT_TCPHDR)NULL;
-			ppUdpHdr = (PWINDIVERT_UDPHDR)NULL;
-			packet_v4 = packet_v6 = 0;
-			packet_type = unknown;
-
-			// Parse network packet and set it's type
+			/**
+			 * Parse packet.
+			 */
 			if (WinDivertHelperParsePacket(
-				recv_pkt,
-				packetLen,
-				&ppIpHdr,
-				&ppIpV6Hdr,
-				NULL, NULL, NULL,
-				&ppTcpHdr,
-				&ppUdpHdr,
-				&packet_data,
-				&packet_dataLen,
-				NULL, NULL))
+				pkt[0],
+				len_recv,
+				&hdr_ip,
+				NULL, //&hdr_ipv6,
+				&proto,
+				NULL, //&hdr_icmp,
+				NULL, //&hdr_icmpv6,
+				NULL, //&hdr_tcp,
+				&hdr_udp,
+				&data,
+				&len_data,
+				NULL,
+				NULL))
 			{
-				if (ppIpHdr)
-				{
-					packet_v4 = 1;
-					if (ppTcpHdr)
-					{
-						w2e_dbg_printf("\tTCP src=%u.%u.%u.%u:%d\tdst=%u.%u.%u.%u:%d\n",
-									   ppIpHdr->SrcAddr & 0xFF,
-									   (ppIpHdr->SrcAddr >> 8) & 0xFF,
-									   (ppIpHdr->SrcAddr >> 16) & 0xFF,
-									   (ppIpHdr->SrcAddr >> 24) & 0xFF,
-									   ntohs(ppTcpHdr->SrcPort),
-									   ppIpHdr->DstAddr & 0xFF,
-									   (ppIpHdr->DstAddr >> 8) & 0xFF,
-									   (ppIpHdr->DstAddr >> 16) & 0xFF,
-									   (ppIpHdr->DstAddr >> 24) & 0xFF,
-									   ntohs(ppTcpHdr->DstPort)
-						);
-						packet_type = ipv4_tcp;
-						if (packet_data)
-						{
-							packet_type = ipv4_tcp_data;
-						}
-					}
-					else if (ppUdpHdr && packet_data)
-					{
-						w2e_dbg_printf("\tUDP src=%u.%u.%u.%u:%d\tdst=%u.%u.%u.%u:%d\n",
-									   ppIpHdr->SrcAddr & 0xFF,
-									   (ppIpHdr->SrcAddr >> 8) & 0xFF,
-									   (ppIpHdr->SrcAddr >> 16) & 0xFF,
-									   (ppIpHdr->SrcAddr >> 24) & 0xFF,
-									   ntohs(ppUdpHdr->SrcPort),
-									   ppIpHdr->DstAddr & 0xFF,
-									   (ppIpHdr->DstAddr >> 8) & 0xFF,
-									   (ppIpHdr->DstAddr >> 16) & 0xFF,
-									   (ppIpHdr->DstAddr >> 24) & 0xFF,
-									   ntohs(ppUdpHdr->DstPort)
-						);
+				w2e_ctrs.ok_rx++;
 
-						packet_type = ipv4_udp_data;
+				if (hdr_ip)
+				{
+					if (hdr_udp && data && !addr.Outbound && hdr_udp->SrcPort == htons(W2E_UDP_SERVER_PORT_MARKER)) /* Inbound UDP with marker */
+					{ /* Decapsulation needed */
+						w2e_ctrs.decap++;
+
+						/**
+						 * Decrypt payload.
+						 */
+						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
+
+						/**
+						 * Substitute local IP.
+						 */
+						hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+
+						/**
+						 * Recalculate CRCs (all).
+						 */
+						WinDivertHelperCalcChecksums(
+							pkt[1], len_send, &addr,
+							(UINT64)(WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+
+						/**
+						 * Send modified packet.
+						 */
+						w2e_dbg_dump(len_send, pkt[1]);
+						w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						continue;
+					}
+					else if (addr.Outbound) /* Any outbound traffic */
+					{ /* Encapsulation needed */
+						w2e_ctrs.encap++;
+
+						w2e_dbg_dump(len_recv, pkt[0]);
+						
+						/**
+						 * Encrypt payload.
+						 */
+						len_send = w2e_crypto_enc(
+							pkt[0],
+							&(pkt[1][W2E_PREAMBLE_SIZE]),
+							len_recv,
+							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
+
+						/**
+						 * Add incapsulation header.
+						 */
+
+						/** IPv4 header */
+						memcpy(pkt[1], w2e_template_iph, sizeof(w2e_template_iph));
+						/** UDP header */
+						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
+
+						/** New UDP header */
+						hdr_pre_udp->SrcPort = htons(0x8880);
+						hdr_pre_udp->Length = htons(len_send + sizeof(w2e_template_udph));
+
+
+						len_send += W2E_PREAMBLE_SIZE;
+
+
+						/** New IPv4 header */
+						hdr_pre_ip->Length = htons((u_short)(len_send));
+						hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						hdr_pre_ip->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
+						//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
+						//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
+
+
+						/**
+						 * Recalculate CRCs (IPv4 and UDP).
+						 */
+						WinDivertHelperCalcChecksums(pkt[1], len_send, &addr,
+							(UINT64)(WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+
+						/**
+						 * Send modified packet.
+						 */
+						w2e_dbg_dump(len_send, pkt[1]);
+						w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						continue;
 					}
 				}
-				else if (ppIpV6Hdr)
-				{
-					w2e_print_error("IPv6 packet processed\n");
-					WinDivertSend(w_filter, recv_pkt, packetLen, NULL, &addr);
-					continue;
-				}
 
-				w2e_dbg_printf("packet_type: %d, packet_v4: %d, packet_v6: %d\n", packet_type, packet_v4, packet_v6);
-
-				
-				/**
-				 * Encrypt payload.
-				 */
-				 //@TODO
-				sz_enc = w2e_crypto_enc(recv_pkt, p.packet, packetLen, sizeof(recv_pkt));
-
-
-				/**
-				 * Add incapsulation header.
-				 */
-
-				/** New IPv4 header */
-				ppIpHdr_pre->Length = htons((u_short)(sz_enc + W2E_PREAMBLE_SIZE));
-				//ppIpHdr_pre->SrcAddr = ppIpHdr->SrcAddr; // Same src address
-				ppIpHdr_pre->SrcAddr = htonl(0x0A00A084); // My src address
-				ppIpHdr_pre->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
-				//ppIpHdr_pre->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
-
-
-				///** New UDP header */
-				//ppUdpHdr_pre->SrcPort = htons(W2E_CLIENT_PORT); // Constant port - marker of encrypted traffic
-				//ppUdpHdr_pre->DstPort = htons(55000); // Remote w2e server port (client-bent) // @TODO Substitute actual port
-				//ppUdpHdr_pre->Length = htons((u_short)packetLen - 20); // minus IPv4 header length
-
-
-
-				/** Recalculate CRCs (IPv4 and ICMP) */
-				WinDivertHelperCalcChecksums(
-					&p, sz_enc + W2E_PREAMBLE_SIZE, &addr,
-					(UINT64)0LL);
-					//(UINT64)(WINDIVERT_HELPER_NO_UDP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
-					//(UINT64)(WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM | WINDIVERT_HELPER_NO_TCP_CHECKSUM)); //(UINT64)0LL);
-
-				/** Send modified packet */
-				WinDivertSend(w_filter, &p, sz_enc + W2E_PREAMBLE_SIZE, NULL, &addr);
+				/** Send unmodified packet */
+				w2e_client__pkt_send(w_filter, pkt[0], len_recv, NULL, &addr);
 			}
 			else
 			{
-				// error, ignore
-				//if (!exiting)
-				w2e_print_error("Error receiving packet!\n");
+				w2e_print_error("Error parsing packet!\n");
+				w2e_ctrs.err_rx++;
+			}
+		}
+		else
+		{
+			errorcode = GetLastError();
+			w2e_print_error("Error receiving packet! 0x%X\n", errorcode);
+			w2e_ctrs.err_rx++;
+
+			switch (errorcode)
+			{
+			case 122:
+			{
+				w2e_print_error("ERROR_INSUFFICIENT_BUFFER: The captured packet is larger than the pPacket buffer\n");
 				break;
+			}
+			case 232:
+			{
+				w2e_print_error("ERROR_NO_DATA: The handle has been shutdown using WinDivertShutdown() and the packet queue is empty.\n");
+				break;
+			}
+			default:
+			{
+				w2e_print_error("Unexpected error 0x%X\n", errorcode);
+				break;
+			}
 			}
 		}
 	}
@@ -300,7 +359,16 @@ int main(int argc, char* argv[])
 
 	w2e_log_printf("Client is starting...\n");
 
+	/**
+	 * SIGINT handler.
+	 */
 	signal(SIGINT, w2c_client__sigint_handler);
+
+	/**
+	 * shmm create.
+	 * @TODO
+	 */
+
 
 	/**
 	 * Crypto lib init.
@@ -312,61 +380,20 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-#if 0
-	//uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm1234567890qwertyuiopasdfghjklzxcvbnm123END";
-	//uint8_t p[] = "STARTqwertyuiopasdfghjklzxcvbnm1234567890END";
-	uint8_t c[] = {
-  0x13, 0x7b, 0x92, 0x41,
-  0xc4, 0x24, 0x26, 0x4d, 0x52, 0xd2, 0x81, 0x4e,
-  0x7d, 0x1a, 0x30, 0xff, 0x7c, 0x82, 0x49, 0xc2,
-  0x8f, 0xbd, 0xb2, 0x3e, 0x4f, 0x38, 0x9a, 0xc9,
-  0xad, 0x0c, 0xc4, 0xdb, 0x07, 0x3a, 0x49, 0xea,
-  0xc8, 0x6b, 0xe2, 0xfe, 0x16, 0xa5, 0xd6, 0xd9,
-  0x41, 0x16, 0x87, 0x3f, 0x52, 0x95, 0x09, 0x6e,
-  0xbc, 0x4e, 0x6f, 0x7b, 0x4f, 0x1c, 0x4a, 0x2e,
-  0x31, 0xb6, 0xec, 0x22, 0x25, 0x26, 0xd4, 0x60,
-  0x80, 0x35, 0xd9, 0x19, 0x6c, 0x2d, 0xd4, 0xc7,
-  0xcf, 0x3d, 0x27, 0xfd
-	};
-	//uint8_t c[129] = { 0 };
-	uint8_t r[129] = { 0 };
-
-	//for (int i = 0; i < sizeof(p); i++)
-	//{
-	//	printf("%02X ", p[i]);
-	//}
-	//printf("\n\n");
-
-	//int sz = w2e_crypto_enc(p, c, sizeof(p), sizeof(c));
-	int sz = 80;
-
-	for (int i = 0; i < sizeof(c); i++)
-	{
-		printf("%02X ", c[i]);
-	}
-	printf("\n\n");
-	w2e_crypto_dec(c, r, sz);
-	for (int i = 0; i < sizeof(r); i++)
-	{
-		printf("%02X ", r[i]);
-	}
-	printf("\n\n");
-	printf("%s\n", r);
-	printf("\n\n");
-	w2e_crypto_deinit();
-	return 0;
-#endif /* 0 */
-
 
 	/**
 	 * Filters initialization.
 	 */
-	 //g_filters[g_filter_num] = w2e_common__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	 //g_filters[g_filter_num] = w2e_common__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	g_filters[g_filter_num] = w2e_common__init(
+	 //g_filters[g_filter_num] = w2e_client__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	 //g_filters[g_filter_num] = w2e_client__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	g_filters[g_filter_num] = w2e_client__init(
 		" !loopback"
 		" and ip"
-		" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53)"
+		//" and (tcp or udp)"
+		" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211 or ip.SrcAddr == 104.248.25.131 or ip.DstAddr == 104.248.25.131)"
+		" and (tcp.DstPort == 443 or tcp.DstPort == 80 or udp.SrcPort == 5256)"
+		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
+		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
 		, 0);
 	w_filter = g_filters[g_filter_num];
 	g_filter_num++;

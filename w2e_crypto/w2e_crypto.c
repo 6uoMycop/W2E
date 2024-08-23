@@ -1,3 +1,4 @@
+#include "w2e_crypto.h"
 /*****************************************************************//**
  * \file   w2e_crypto.h
  * \brief  Cross-platform cryptographic interface
@@ -59,7 +60,7 @@ void w2e_crypto_deinit()
 
 /**
  * Encrypt buffer of given size sz_fact.
- * sz_max must be equal to size of plains and crypt buffers.
+ * sz_max must be equal to size of plain and crypt buffers.
  * Add 0 padding at the end of plaintext (if sz_max affords to).
  * Returns size of resulting array in bytes.
  */
@@ -91,7 +92,7 @@ int w2e_crypto_enc(u8* plain, u8* crypt, int sz_fact, int sz_max)
  * Decrypt buffer of given size sz_fact.
  * Be careful -- may contain padding
  */
-void w2e_crypto_dec(u8* crypt, const u8* plain, int sz_fact)
+void w2e_crypto_dec(const u8* crypt, u8* plain, int sz_fact)
 {
 	if (sz_fact % key_len)
 	{
@@ -102,5 +103,36 @@ void w2e_crypto_dec(u8* crypt, const u8* plain, int sz_fact)
 	{
 		aes_decrypt(_ctx_dec, &(crypt[i * key_len]), &(plain[i * key_len]));
 	}
+}
+
+
+/**
+ * Decrypt payload of IPv4-encapsulated packet.
+ * I.e. obtain actual packet size from IPv4 header's total length.
+ * Returns real packet's length (without padding).
+ */
+int w2e_crypto_dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total)
+{
+	int sz_real = 0;
+
+	/**
+	 * Decrypt first block. First 20 bytes are always valid
+	 */
+	aes_decrypt(_ctx_dec, crypt, plain);
+
+	/**
+	 * Obtain IPv4 packet length field value.
+	 * It is 2nd and 3rd IPv4 header bytes.
+	 */
+	sz_real = ntohs(*(u16*)(&(plain[2])));
+	w2e_dbg_printf("Encapsulated payload length=%d\n", sz_real);
+
+	/**
+	 * Decrypt the rest of packet.
+	 */
+	w2e_crypto_dec(&(crypt[key_len]), &(plain[key_len]), sz_total - key_len);
+
+
+	return sz_real;
 }
 
