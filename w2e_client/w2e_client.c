@@ -260,6 +260,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 * Send modified packet.
 						 */
 						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						continue;
 					}
 					else if (addr.Outbound) /* Any outbound traffic */
 					{ /* Encapsulation needed */
@@ -315,6 +316,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 */
 						w2e_dbg_dump(len_send, pkt[1]);
 						w2e_pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						continue;
 					}
 				}
 
@@ -573,6 +575,7 @@ int main(int argc, char* argv[])
 	g_filters[g_filter_num] = w2e_common__init(
 		" !loopback"
 		" and ip"
+		" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211 or ip.SrcAddr == 104.248.25.131 or ip.DstAddr == 104.248.25.131)"
 		" and (tcp.DstPort == 443 or tcp.DstPort == 80 or udp.SrcPort == 5256)"
 		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
 		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
