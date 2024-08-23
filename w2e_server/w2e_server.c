@@ -115,9 +115,9 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		)
 		{
 			/** Remember client's DNS server address */
-			w2e_client_ctxt.last_dns_addr = ntohl(hdr_ip->daddr);
+			w2e_client_ctxt.last_dns_addr = ntohl(hdr_pre_ip->daddr);
 			/** Substitute ours DNS server */
-			hdr_pre_ip->saddr = htonl(W2E_DNS);
+			hdr_pre_ip->daddr = htonl(W2E_DNS);
 		}
 
 		/** For send to socket */
@@ -150,11 +150,11 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		 * Process DNS (if it is).
 		 */
 		if (hdr_ip->protocol == 0x11 // UDP
-			&& hdr_udp->dest == htons(53) // DNS
+			&& hdr_udp->source == htons(53) // DNS
 			)
 		{
 			/** Substitute client's DNS server back */
-			hdr_pre_ip->saddr = htonl(w2e_client_ctxt.last_dns_addr);
+			hdr_ip->saddr = htonl(w2e_client_ctxt.last_dns_addr);
 
 			/**
 			 * Recalculate CRCs (IPv4 and UDP).
