@@ -294,6 +294,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	 * Send modified packet.
 	 */
 	 w2e_ctrs.total_tx++;
+	 w2e_dbg_printf("len= %d\n", len_send);
 	 w2e_dbg_dump(len_send, pkt1);
 
 
