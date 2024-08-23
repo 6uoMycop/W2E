@@ -26,4 +26,13 @@
 #include "w2e_crypto.h"
 
 
+/**
+ * Open DNS server address to substitute.
+ */
+#ifndef W2E_DNS
+#define W2E_DNS 0x08080808
+#endif // !W2E_DNS
+
+
+
 #endif // __W2E_SERVER_H

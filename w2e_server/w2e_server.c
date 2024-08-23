@@ -10,78 +10,6 @@
 #include "w2e_server.h"
 
 
-#if 0
-static u_int32_t print_pkt(struct nfq_data* tb)
-{
-	int id = 0;
-	struct nfqnl_msg_packet_hdr* ph;
-	struct nfqnl_msg_packet_hw* hwph;
-	u_int32_t mark, ifi;
-	int ret;
-	char* data;
-
-	ph = nfq_get_msg_packet_hdr(tb);
-	if (ph)
-	{
-		id = ntohl(ph->packet_id);
-		printf("hw_protocol=0x%04x hook=%u id=%u ", ntohs(ph->hw_protocol), ph->hook, id);
-	}
-
-	hwph = nfq_get_packet_hw(tb);
-	if (hwph)
-	{
-		int i, hlen = ntohs(hwph->hw_addrlen);
-
-		printf("hw_src_addr=");
-		for (i = 0; i < hlen - 1; i++)
-		{
-			printf("%02x:", hwph->hw_addr[i]);
-		}
-		printf("%02x ", hwph->hw_addr[hlen - 1]);
-	}
-
-	mark = nfq_get_nfmark(tb);
-	if (mark)
-	{
-		printf("mark=%u ", mark);
-	}
-
-	ifi = nfq_get_indev(tb);
-	if (ifi)
-	{
-		printf("indev=%u ", ifi);
-	}
-
-	ifi = nfq_get_outdev(tb);
-	if (ifi)
-	{
-		printf("outdev=%u ", ifi);
-	}
-	ifi = nfq_get_physindev(tb);
-	if (ifi)
-	{
-		printf("physindev=%u ", ifi);
-	}
-
-	ifi = nfq_get_physoutdev(tb);
-	if (ifi)
-	{
-		printf("physoutdev=%u ", ifi);
-	}
-
-	ret = nfq_get_payload(tb, &data);
-	if (ret >= 0)
-	{
-		printf("payload_len=%d ", ret);
-		//processPacketData (data, ret);
-	}
-	fputc('\n', stdout);
-
-	return id;
-}
-#endif /* 0 */
-
-
 /**
  * Global counters.
  */
@@ -105,46 +33,14 @@ static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
 static volatile uint8_t server_stop = 0;
 
+/**
+ * Context.
+ */
 static struct {
 	uint32_t addr; // Client address in host byte order
+	uint32_t last_dns_addr; // Last client DNS address in host byte order
 } w2e_client_ctxt = { 0 };
 
-
-#if 0
-static uint16_t calculate_checksum_icmp(unsigned char* buffer, int bytes)
-{
-	uint32_t checksum = 0;
-	unsigned char* end = buffer + bytes;
-
-	// odd bytes add last byte and reset end
-	if (bytes % 2 == 1)
-	{
-		end = buffer + bytes - 1;
-		checksum += (*end) << 8;
-	}
-
-	// add words of two bytes, one by one
-	while (buffer < end)
-	{
-		checksum += buffer[0] << 8;
-		checksum += buffer[1];
-		buffer += 2;
-	}
-
-	// add carry if any
-	uint32_t carray = checksum >> 16;
-	while (carray)
-	{
-		checksum = (checksum & 0xffff) + carray;
-		carray = checksum >> 16;
-	}
-
-	// negate it
-	checksum = ~checksum;
-
-	return checksum & 0xffff;
-}
-#endif /* 0 */
 
 static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
@@ -211,6 +107,18 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 		 */
 		hdr_pre_ip->saddr = htonl(0x0a800002);
 
+		/**
+		 * Process DNS (if it is).
+		 */
+		if (hdr_pre_ip->protocol == 0x11 // UDP
+			&& hdr_pre_udp->dest == htons(53) // DNS
+		)
+		{
+			/** Remember client's DNS server address */
+			w2e_client_ctxt.last_dns_addr = ntohl(hdr_ip->daddr);
+			/** Substitute ours DNS server */
+			hdr_pre_ip->saddr = htonl(W2E_DNS);
+		}
 
 		/** For send to socket */
 		sin.sin_addr.s_addr = ntohl(hdr_pre_ip->daddr);
@@ -237,6 +145,23 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 	{
 		w2e_ctrs.encap++;
 		w2e_dbg_printf("Encap\n");
+
+		/**
+		 * Process DNS (if it is).
+		 */
+		if (hdr_ip->protocol == 0x11 // UDP
+			&& hdr_udp->dest == htons(53) // DNS
+			)
+		{
+			/** Substitute client's DNS server back */
+			hdr_pre_ip->saddr = htonl(w2e_client_ctxt.last_dns_addr);
+
+			/**
+			 * Recalculate CRCs (IPv4 and UDP).
+			 */
+			nfq_udp_compute_checksum_ipv4(hdr_udp, hdr_ip);
+			nfq_ip_set_checksum(hdr_ip);
+		}
 
 		/**
 		 * Encrypt payload.
@@ -282,7 +207,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 
 
 		/**
-		 * Recalculate CRCs (IPv4 and ICMP).
+		 * Recalculate CRCs (IPv4 and UDP).
 		 */
 		//hdr_pre_icmp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
 		//hdr_pre_udp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));

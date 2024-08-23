@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
 		" !loopback"
 		" and ip"
 		//" and (tcp or udp)"
-		" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211 or ip.SrcAddr == 104.248.25.131 or ip.DstAddr == 104.248.25.131)"
+		//" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211)"
 		" and (tcp.DstPort == 443 or tcp.DstPort == 80 or udp.SrcPort == 5256)"
 		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
 		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
