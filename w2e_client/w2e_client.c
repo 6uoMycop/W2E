@@ -389,6 +389,7 @@ int main(int argc, char* argv[])
 	g_filters[g_filter_num] = w2e_client__init(
 		" !loopback"
 		" and ip"
+		//" and (tcp or udp)"
 		" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211 or ip.SrcAddr == 104.248.25.131 or ip.DstAddr == 104.248.25.131)"
 		" and (tcp.DstPort == 443 or tcp.DstPort == 80 or udp.SrcPort == 5256)"
 		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
