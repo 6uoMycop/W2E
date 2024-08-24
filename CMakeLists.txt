@@ -16,7 +16,10 @@ include_directories(
 	"inih"
 	"w2e_crypto"
 )
-link_directories("w2e_crypto")
+link_directories(
+	"inih"
+	"w2e_crypto"
+)
 
 # Windows-specific
 if (MSVC)

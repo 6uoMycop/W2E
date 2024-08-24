@@ -23,16 +23,50 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
 #include "w2e_common.h"
+#include "inih.h"
 #include "w2e_crypto.h"
 
 
+#ifndef W2E_MAX_CLIENTS
 /**
- * Open DNS server address to substitute.
+ * Maximum number of clients.
  */
-#ifndef W2E_DNS
-#define W2E_DNS 0x08080808
-#endif // !W2E_DNS
+#define W2E_MAX_CLIENTS 1
+#endif // !W2E_MAX_CLIENTS
 
 
+/**
+ * Client context.
+ */
+typedef struct {
+	uint8_t		is_configured;		/** Is this client configured from INI file? */
+	/** INI configured */
+	uint16_t	port;				/** This client's UDP port (in network byte order) */
+	uint8_t		key[W2E_KEY_LEN];	/** AES key */
+	/** Runtime context */
+	uint32_t	ip_client;			/** Client's IP address (in network byte order) */
+	uint32_t	ip_dns_last;		/** Last client DNS address in network byte order */
+} w2e_cfg_client_ctx_t;
+
+
+/**
+ * Server runtime context.
+ */
+typedef struct {
+	/**
+	 * INI configured // DNS server's IP address (in network byte order). If 0 -- don't substitute.
+	 */
+	uint32_t				ip_dns;
+
+	/**
+	 * INI configured // DNS server's IP address (in network byte order). If 0 -- don't substitute.
+	 */
+	uint32_t				ip_server;
+
+	/**
+	 * Clients' contexts. Index in this array is client's ID.
+	 */
+	w2e_cfg_client_ctx_t	client_ctx[W2E_MAX_CLIENTS];
+} w2e_cfg_server_ctx_t;
 
 #endif // __W2E_SERVER_H

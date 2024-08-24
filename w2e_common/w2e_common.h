@@ -32,11 +32,11 @@
 #define W2E_HOST_MAXLEN 253
 #endif // !W2E_HOST_MAXLEN
 
+#ifndef W2E_MAX_PACKET_SIZE
 /**
  * Effective packet length is reduced because of insertion of new headers.
  * Refer to client's and server's source code.
  */
-#ifndef W2E_MAX_PACKET_SIZE
 #define W2E_MAX_PACKET_SIZE 9016
 #endif // !W2E_MAX_PACKET_SIZE
 
@@ -44,12 +44,19 @@
 #define W2E_MAX_FILTERS 4
 #endif // !W2E_MAX_FILTERS
 
+#ifndef W2E_KEY_LEN
 /**
  * AES key length in bytes.
  */
-#ifndef W2E_KEY_LEN
 #define W2E_KEY_LEN (128 / 8)
 #endif // !W2E_KEY_LEN
+
+#ifndef W2E_CLIENT_PORT_HB
+ /**
+  * Higher byte of client's port (prefix).
+  */
+#define W2E_CLIENT_PORT_HB 0xCC00
+#endif // !W2E_MAX_CLIENTS
 
 
 /**
@@ -70,8 +77,7 @@
  /** Debug buffer hex dump macro */
 #define w2e_dbg_dump(len, buf) \
 do { \
-	for (int __i = 0; __i < len; __i++) \
-		printf("%02X ", (unsigned char)(buf[__i])); \
+	for (int __i = 0; __i < len; __i++) printf("%02X ", (unsigned char)(buf[__i])); \
 	printf("\n"); \
 } while (0);
 #endif // W2E_DEBUG
@@ -89,7 +95,9 @@ do { \
 #endif // !W2E_VERBOSE
 
 
-/** Define error printf macro */
+/**
+ * Define error printf macro.
+ */
 #define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
 
 
@@ -107,18 +115,25 @@ typedef struct {
 	unsigned int decap;		/* Number of decapsulated packets */
 } w2e_ctrs_t;
 
+/**
+ * Shared-memory (platform-specific).
+ * @TODO
+ */
+#if 0
+#ifdef _MSC_VER // Windows
 
-////**
-/// * ICMP encrypted marker.
-/// */
-///#define W2E_ICMP_TYPE_MARKER 0x00
-///#define W2E_ICMP_CODE_MARKER 0x00
-///#define W2E_ICMP_BODY_MARKER 0xFADEDEFA /* Should be symmetric, otherwise call htonl(W2E_ICMP_BODY_MARKER) */
+#else // Linux
+void* shmm_create(size_t size)
+{
+	return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, -1, 0);
+}
+#endif // ?_MSC_VER
+#endif /* 0 */
 
 
-////**
-/// * UDP encrypted marker.
-/// */
+/**
+ * UDP encrypted marker.
+ */
 #define W2E_UDP_SERVER_PORT_MARKER 0x1488
 
 
@@ -143,15 +158,6 @@ static const uint8_t w2e_template_iph[] = {
 	0x00, 0x00, 0x00, 0x00
 };
 
-///// ICMPv4 header template. <These> fields will be edited.
-///// |  type=8   |  code=0    |       <ICMP crc>     |
-///// |          <id>          |       <seq>          |
-///static const uint8_t w2e_template_icmph[] = {
-///	0x08, 0x00, 0x00, 0x00,
-///	0xfa, 0xde, 0xde, 0xfa // It is W2E_ICMP_BODY_MARKER
-///	//0x00, 0x00, 0x00, 0x00
-///};
-
 
 // UDP header template. <These> fields will be edited.
 // |      <UDP src>         |       <UDP dst>      |
@@ -161,21 +167,6 @@ static const uint8_t w2e_template_udph[] = {
 	0x00, 0x00, 0x00, 0x00
 };
 
-
-/**
- * Shared-memory (platform-specific).
- * @TODO
- */
-#if 0
-#ifdef _MSC_VER // Windows
-
-#else // Linux
-void* shmm_create(size_t size)
-{
-	return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, -1, 0);
-}
-#endif // ?_MSC_VER
-#endif /* 0 */
 
 
 

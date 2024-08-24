@@ -26,6 +26,32 @@ If none provided, program will try to use `default.config`
 apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-queue1 iptables #tcpdump
 ```
 
+### Configuration file
+
+#### Section **[server]**
+
+##### **dns=** {none, ip}
+
+Open DNS server address to substitute in DNS queries (may be empty = don't change)
+
+##### **ip=** ip
+
+Server's IP address
+
+#### Section **[client]**
+
+May be multiple sections. Describes clients.
+
+##### **id=** number in range [0, 255]
+
+Client's ID in range [0-255].
+Corresponding client's source port is calculated as <prefix>|<id>.
+Value must be unique in configuration file.
+
+##### **key=** string of key length 
+
+Client's AES key.
+
 
 ## Client
 
@@ -33,6 +59,32 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 **Operating principle:** Pass packets to userspace via `WinDivert`
 
+### Configuration file
+
+#### Section **[server]**
+
+##### **ip=** ip
+
+Server's IP address
+
+#### Section **[client]**
+
+May be multiple sections. Describes clients.
+
+##### **id=** number in range [0, 255]
+
+Client's ID in range [0-255].
+Corresponding client's source port is calculated as <prefix>|<id>.
+Value must be unique in configuration file.
+
+##### **ip=** ip
+
+IP address to use as Source address of encapsulated packets.
+If set empty -- will be used the same Source IP from plain packets.
+
+##### **key=** string of key length 
+
+Client's AES key.
 
 
 ## Related repos

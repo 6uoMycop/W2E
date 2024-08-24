@@ -39,11 +39,18 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	unsigned int tmp_len = 0;
 
 #define MATCH(s, n) (strcmp(section, s) == 0 && strcmp(name, n) == 0)
-	if (MATCH("client", "port"))
+	if (MATCH("client", "id"))
 	{
-		pconfig->port_client = htons(atoi(value));
+		pconfig->id = atoi(value);
+		if (pconfig->id > 0xFF)
+		{
+			w2e_print_error("INI: [client] id: value must be in (0-255). Given %s\n", value);
+			return 0;
+		}
+		/** Port number calculation */
+		pconfig->port_client = htons(W2E_CLIENT_PORT_HB | pconfig->id);
 
-		w2e_log_printf("\tINI: [client] port: %s (Net order: 0x%04X)\n", value, pconfig->port_client);
+		w2e_log_printf("\tINI: [client] id: %s (Port in net order: 0x%04X)\n", value, pconfig->port_client);
 	}
 	else if (MATCH("client", "ip"))
 	{
@@ -70,16 +77,16 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 
 		w2e_log_printf("\tINI: [server] ip: %s (Net order 0x%08X)\n", value, pconfig->ip_server);
 	}
-	else if (MATCH("crypto", "key"))
+	else if (MATCH("client", "key"))
 	{
 		tmp_len = strlen(value) - 1;
 		if (tmp_len != W2E_KEY_LEN)
 		{
-			w2e_print_error("INI: [crypto] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
+			w2e_print_error("INI: [client] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
 		}
 		memcpy(pconfig->key, value, W2E_KEY_LEN);
 
-		w2e_log_printf("\tINI: [crypto] key: %s\n", value);
+		w2e_log_printf("\tINI: [client] key: %s\n", value);
 	}
 	else
 	{
