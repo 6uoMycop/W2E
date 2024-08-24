@@ -7,6 +7,13 @@
 [![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme.svg)
 
 
+## Args
+
+You can pass custom `config` file as the only w2e_client/w2e_server CLI argument.
+
+If none provided, program will try to use `default.config`
+
+
 ## Server
 
 **OS:** `Linux`

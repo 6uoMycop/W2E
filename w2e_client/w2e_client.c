@@ -23,8 +23,63 @@ static volatile uint8_t client_stop = 0;
  */
 w2e_ctrs_t w2e_ctrs = { 0 };
 
+/**
+ * Config.
+ */
+w2e_cfg_client_t w2e_cfg_client = { 0 };
 
-static HANDLE w2e_client__init(char* filter, UINT64 flags)
+
+/**
+ * INI config parser.
+ */
+static int __w2e_client__ini_handler(void* cfg, const char* section, const char* name, const char* value)
+{
+	w2e_cfg_client_t* pconfig = (w2e_cfg_client_t*)cfg;
+
+	unsigned int crypto_key_len = 0;
+
+#define MATCH(s, n) (strcmp(section, s) == 0 && strcmp(name, n) == 0)
+	if (MATCH("client", "port"))
+	{
+		pconfig->port_client = htons(atoi(value));
+
+		w2e_log_printf("\tINI: [client] port: %s (Net order: 0x%04X)\n", value, pconfig->port_client);
+	}
+	else if (MATCH("server", "ip"))
+	{
+		if (inet_pton(AF_INET, value, &(pconfig->ip_server)) != 1)
+		{
+			w2e_print_error("INI: [server] ip: wrong IP %s\n", value);
+			return 0;
+		}
+
+		w2e_log_printf("\tINI: [server] ip: %s (Net order 0x%08X)\n", value, pconfig->ip_server);
+	}
+	else if (MATCH("crypto", "key"))
+	{
+		crypto_key_len = strlen(value) - 1;
+		if (crypto_key_len != W2E_KEY_LEN)
+		{
+			w2e_print_error("INI: [crypto] key: wrong key length (%d). Must be %d\n", crypto_key_len, W2E_KEY_LEN);
+		}
+		memcpy(pconfig->key, value, W2E_KEY_LEN);
+
+		w2e_log_printf("\tINI: [crypto] key: %s\n", value);
+	}
+	else
+	{
+		w2e_print_error("INI: unknown section/name, error\n");
+		return 0;
+	}
+#undef MATCH
+	return 1;
+}
+
+
+/**
+ * WinDivert initialization.
+ */
+static HANDLE __w2e_client__init(char* filter, UINT64 flags)
 {
 	LPTSTR errormessage = NULL;
 	DWORD errorcode = 0;
@@ -95,6 +150,9 @@ static HANDLE w2e_client__init(char* filter, UINT64 flags)
 }
 
 
+/**
+ * WinDivert deinitialization.
+ */
 static int __w2e_client__deinit(HANDLE handle)
 {
 	if (handle)
@@ -107,7 +165,10 @@ static int __w2e_client__deinit(HANDLE handle)
 }
 
 
-static void w2e_client__deinit_all(HANDLE* filters, int filter_num)
+/**
+ * WinDivert deinitialization of all filters.
+ */
+static void __w2e_client__deinit_all(HANDLE* filters, int filter_num)
 {
 	w2e_log_printf("Deinitialize...\n");
 	for (int i = 0; i < filter_num; i++)
@@ -117,18 +178,24 @@ static void w2e_client__deinit_all(HANDLE* filters, int filter_num)
 }
 
 
-static void w2c_client__sigint_handler(int sig)
+/**
+ * SIGINT handler.
+ */
+static void __w2c_client__sigint_handler(int sig)
 {
 	(void)sig;
 	
 	client_stop = 1;
-	w2e_client__deinit_all(g_filters, g_filter_num);
+	__w2e_client__deinit_all(g_filters, g_filter_num);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
 
 
-static BOOL w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packetLen, UINT* pSendLen, const WINDIVERT_ADDRESS* pAddr)
+/**
+ * Send WinDivert packet.
+ */
+static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packetLen, UINT* pSendLen, const WINDIVERT_ADDRESS* pAddr)
 {
 	DWORD errorcode = 0;
 
@@ -168,7 +235,10 @@ static BOOL w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packet
 }
 
 
-static void w2c_client__main_loop(HANDLE w_filter)
+/**
+ * Client's main packet processing loop.
+ */
+static void __w2c_client__main_loop(HANDLE w_filter)
 {
 	DWORD					errorcode = 0;
 
@@ -252,7 +322,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 * Send modified packet.
 						 */
 						w2e_dbg_dump(len_send, pkt[1]);
-						w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						__w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
 					else if (addr.Outbound) /* Any outbound traffic */
@@ -306,13 +376,13 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 * Send modified packet.
 						 */
 						w2e_dbg_dump(len_send, pkt[1]);
-						w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						__w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
 				}
 
 				/** Send unmodified packet */
-				w2e_client__pkt_send(w_filter, pkt[0], len_recv, NULL, &addr);
+				__w2e_client__pkt_send(w_filter, pkt[0], len_recv, NULL, &addr);
 			}
 			else
 			{
@@ -354,28 +424,41 @@ static void w2c_client__main_loop(HANDLE w_filter)
  */
 int main(int argc, char* argv[])
 {
-	(void)argc;
-	(void)argv;
-
 	HANDLE w_filter = NULL;
+	const char ini_default[] = W2E_INI_DEFAULT_NAME;
+	const char* ini_fname = ini_default;
 
 	w2e_log_printf("Client is starting...\n");
 
 	/**
 	 * SIGINT handler.
 	 */
-	signal(SIGINT, w2c_client__sigint_handler);
+	signal(SIGINT, __w2c_client__sigint_handler);
 
 	/**
 	 * shmm create.
 	 * @TODO
 	 */
 
+	
+	/**
+	 * INI parser.
+	 */
+	if (argc > 1)
+	{
+		ini_fname = argv[1];
+	}
+	w2e_log_printf("INI: Reading config file %s...\n", ini_fname);
+	if (ini_parse(ini_fname, __w2e_client__ini_handler, &w2e_cfg_client) < 0)
+	{
+		w2e_print_error("INI: Can't load %s\n", ini_fname);
+		return 1;
+	}
+	return 0;
 
 	/**
 	 * Crypto lib init.
 	 */
-
 	if (w2e_crypto_init((const u8*)"0000000000000000", W2E_KEY_LEN) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
@@ -386,9 +469,9 @@ int main(int argc, char* argv[])
 	/**
 	 * Filters initialization.
 	 */
-	 //g_filters[g_filter_num] = w2e_client__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	 //g_filters[g_filter_num] = w2e_client__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	g_filters[g_filter_num] = w2e_client__init(
+	 //g_filters[g_filter_num] = __w2e_client__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	 //g_filters[g_filter_num] = __w2e_client__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	g_filters[g_filter_num] = __w2e_client__init(
 		" !loopback"
 		" and ip"
 		//" and (tcp or udp)"
@@ -405,7 +488,7 @@ int main(int argc, char* argv[])
 	w_filter = g_filters[g_filter_num];
 	g_filter_num++;
 
-	w2c_client__main_loop(w_filter);
+	__w2c_client__main_loop(w_filter);
 
 
 	/**

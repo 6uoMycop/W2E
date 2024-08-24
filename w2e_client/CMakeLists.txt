@@ -10,6 +10,9 @@ endif()
 # Copy DLL and SYS to be near EXE
 file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert.dll" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert64.sys" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy configs to be near EXE
+file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/w2e_client/*.config") # For wildcard COPY
+file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 # Add resource
 target_sources(w2e_client PRIVATE w2e_client.rc)
 
@@ -22,10 +25,11 @@ endif()
 
 
 target_link_libraries(w2e_client
+	PUBLIC inih
 	PUBLIC w2e_crypto
 	PUBLIC WinDivert
 	PUBLIC wsock32
-	PUBLIC inih
+	PUBLIC Ws2_32
 	PRIVATE cmocka-static
 )
 

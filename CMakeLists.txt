@@ -13,6 +13,7 @@ project ("W2E" VERSION 0.1 LANGUAGES C)
 # Common
 include_directories(
 	"w2e_common"
+	"inih"
 	"w2e_crypto"
 )
 link_directories("w2e_crypto")
