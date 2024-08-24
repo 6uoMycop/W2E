@@ -307,15 +307,19 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 
 		/** New IPv4 header */
 		hdr_pre_ip->tot_len = htons((u_short)(len_send));
-		hdr_pre_ip->saddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
-		hdr_pre_ip->daddr = htonl(w2e_client_ctxt.addr); // Remote w2e client address
+		/** Server src address */
+		hdr_pre_ip->saddr = w2e_ctx.ip_server;
+		/** Remote w2e client address */
+		hdr_pre_ip->daddr = w2e_ctx.client_ctx[id_client].ip_client;
+		//hdr_pre_ip->saddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
 		//hdr_pre_ip->daddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
 		//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 		//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
 
-		/** For send to socket */
-		sin.sin_addr.s_addr = htonl(w2e_client_ctxt.addr);
+		/** For send to socket -- destination address */
+		sin.sin_addr.s_addr = w2e_ctx.client_ctx[id_client].ip_client;
+		//sin.sin_addr.s_addr = htonl(w2e_client_ctxt.addr);
 
 
 		/**
@@ -337,7 +341,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	 */
  send_original:
 	w2e_ctrs.total_tx++;
-	return nfq_set_verdict(qh, id, NF_PASS, 0, NULL);
+	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 
 
 	/**
