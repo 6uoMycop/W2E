@@ -36,7 +36,7 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 {
 	w2e_cfg_client_t* pconfig = (w2e_cfg_client_t*)cfg;
 
-	unsigned int crypto_key_len = 0;
+	unsigned int tmp_len = 0;
 
 #define MATCH(s, n) (strcmp(section, s) == 0 && strcmp(name, n) == 0)
 	if (MATCH("client", "port"))
@@ -44,6 +44,21 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 		pconfig->port_client = htons(atoi(value));
 
 		w2e_log_printf("\tINI: [client] port: %s (Net order: 0x%04X)\n", value, pconfig->port_client);
+	}
+	else if (MATCH("client", "ip"))
+	{
+		tmp_len = strlen(value);
+		if (tmp_len == 0)
+		{
+			pconfig->ip_client = 0;
+		}
+		else if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
+		{
+			w2e_print_error("INI: [client] ip: wrong IP %s\n", value);
+			return 0;
+		}
+
+		w2e_log_printf("\tINI: [client] ip: %s (Net order 0x%08X)\n", tmp_len ? value : "COPY SAME", pconfig->ip_server);
 	}
 	else if (MATCH("server", "ip"))
 	{
@@ -57,10 +72,10 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	}
 	else if (MATCH("crypto", "key"))
 	{
-		crypto_key_len = strlen(value) - 1;
-		if (crypto_key_len != W2E_KEY_LEN)
+		tmp_len = strlen(value) - 1;
+		if (tmp_len != W2E_KEY_LEN)
 		{
-			w2e_print_error("INI: [crypto] key: wrong key length (%d). Must be %d\n", crypto_key_len, W2E_KEY_LEN);
+			w2e_print_error("INI: [crypto] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
 		}
 		memcpy(pconfig->key, value, W2E_KEY_LEN);
 
@@ -350,7 +365,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
 
 						/** New UDP header */
-						hdr_pre_udp->SrcPort = htons(0x8880);
+						hdr_pre_udp->SrcPort = w2e_cfg_client.port_client;
 						hdr_pre_udp->Length = htons(len_send + sizeof(w2e_template_udph));
 
 
@@ -359,12 +374,14 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 
 						/** New IPv4 header */
 						hdr_pre_ip->Length = htons((u_short)(len_send));
-						//hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
-						hdr_pre_ip->SrcAddr = htonl(0xc0a832f5); // My src address
-						hdr_pre_ip->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
-						//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
-						//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
+						/** Configured in INI address or the same address from plain */
+						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client ? w2e_cfg_client.ip_client : hdr_ip->SrcAddr;
+						/** Remote w2e server address */
+						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_server;
+
+						//hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						//hdr_pre_ip->SrcAddr = htonl(0xc0a832f5); // My src address
 
 						/**
 						 * Recalculate CRCs (IPv4 and UDP).
@@ -449,17 +466,16 @@ int main(int argc, char* argv[])
 		ini_fname = argv[1];
 	}
 	w2e_log_printf("INI: Reading config file %s...\n", ini_fname);
-	if (ini_parse(ini_fname, __w2e_client__ini_handler, &w2e_cfg_client) < 0)
+	if (ini_parse(ini_fname, __w2e_client__ini_handler, &w2e_cfg_client) != 0)
 	{
-		w2e_print_error("INI: Can't load %s\n", ini_fname);
+		w2e_print_error("INI: Error in file %s\n", ini_fname);
 		return 1;
 	}
-	return 0;
 
 	/**
 	 * Crypto lib init.
 	 */
-	if (w2e_crypto_init((const u8*)"0000000000000000", W2E_KEY_LEN) != 0)
+	if (w2e_crypto_init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
 		return 1;

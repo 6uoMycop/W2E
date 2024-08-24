@@ -20,20 +20,12 @@
 #include "windivert.h"
 
 
-//@TODO delete this, use config
-#ifndef W2E_CLIENT_PORT
-/**
- * Client's UDP source port.
- */
-#define W2E_CLIENT_PORT 55888
-#endif // !W2E_CLIENT_PORT
-
-
 /**
  * Client configuration.
  */
 typedef struct {
     uint32_t    ip_server;          /** Server's IP address (in network byte order) */
+    uint32_t    ip_client;          /** Client's IP address (in network byte order). If 0 -- copy IP from plain packets */
     uint16_t    port_client;        /** This client's UDP port (in network byte order) */
     uint8_t     key[W2E_KEY_LEN];   /** AES key */
 } w2e_cfg_client_t;

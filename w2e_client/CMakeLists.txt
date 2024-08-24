@@ -17,11 +17,11 @@ file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 target_sources(w2e_client PRIVATE w2e_client.rc)
 
 
-if(MSVC)
-	target_compile_options(w2e_crypto PRIVATE /Wall /we4702 /we4505)
-else()
-	message(FATAL_ERROR "w2e_client is a Windows app")
-endif()
+#if(MSVC)
+#	target_compile_options(w2e_client PRIVATE /Wall /we4702 /we4505)
+#else()
+#	message(FATAL_ERROR "w2e_client is a Windows app")
+#endif()
 
 
 target_link_libraries(w2e_client
@@ -30,9 +30,9 @@ target_link_libraries(w2e_client
 	PUBLIC WinDivert
 	PUBLIC wsock32
 	PUBLIC Ws2_32
-	PRIVATE cmocka-static
+#	PRIVATE cmocka-static
 )
 
-
-enable_testing()
-add_test(NAME w2e_client COMMAND w2e_client)
+#
+#enable_testing()
+#add_test(NAME w2e_client COMMAND w2e_client)

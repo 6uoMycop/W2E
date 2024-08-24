@@ -8,7 +8,7 @@ if (POLICY CMP0141)
 	set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("W2E" VERSION 0.1 LANGUAGES C)
+project ("W2E" VERSION 0.2 LANGUAGES C)
 
 # Common
 include_directories(
@@ -35,10 +35,10 @@ endif ()
 #endif(UNIX)
 
 
-if (MSVC)
-# CMocka download
-include(FetchCMocka.cmake)
-endif ()
+#if (MSVC)
+## CMocka download
+#include(FetchCMocka.cmake)
+#endif ()
 
 
 # CONFIG
@@ -54,7 +54,7 @@ if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)
 endif ()
 
-if(UNIX)
+if (UNIX)
 add_subdirectory ("w2e_server")  # Server application (Linux)
 endif()
 

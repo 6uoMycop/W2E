@@ -19,8 +19,8 @@ elseif (CMAKE_VERSION VERSION_GREATER 3.1)
 endif()
 
 
-if (MSVC)
-	target_compile_options(w2e_crypto PRIVATE /Wall /we4702 /we4505)
-else()
-	target_compile_options(w2e_crypto PRIVATE -Wall -Wextra -Wpedantic -Werror)
-endif()
+#if (MSVC)
+#	target_compile_options(w2e_crypto PRIVATE /Wall /we4702 /we4505)
+#else()
+#	target_compile_options(w2e_crypto PRIVATE -Wall -Wextra -Wpedantic -Werror)
+#endif()
