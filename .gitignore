@@ -13,3 +13,4 @@ CMakeUserPresets.json
 /.vs
 /out
 misc/*.bkp
+*.aps

@@ -238,7 +238,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						/**
 						 * Substitute local IP.
 						 */
-						hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						hdr_pre_ip->DstAddr = htonl(0xc0a832f5); // My src address
+						//hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
 
 						/**
 						 * Recalculate CRCs (all).
@@ -288,7 +289,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 						/** New IPv4 header */
 						hdr_pre_ip->Length = htons((u_short)(len_send));
-						hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						//hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						hdr_pre_ip->SrcAddr = htonl(0xc0a832f5); // My src address
 						hdr_pre_ip->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
 						//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
 						//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address

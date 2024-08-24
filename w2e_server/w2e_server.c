@@ -186,7 +186,7 @@ static int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* 
 
 		/** New UDP header */
 		hdr_pre_udp->dest = htons(0x8880);
-		hdr_pre_udp->source = htons(0x1488);
+		hdr_pre_udp->source = htons(W2E_UDP_SERVER_PORT_MARKER);
 		hdr_pre_udp->len = htons(len_send + sizeof(w2e_template_udph));
 
 

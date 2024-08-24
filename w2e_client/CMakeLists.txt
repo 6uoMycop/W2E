@@ -25,6 +25,7 @@ target_link_libraries(w2e_client
 	PUBLIC w2e_crypto
 	PUBLIC WinDivert
 	PUBLIC wsock32
+	PUBLIC inih
 	PRIVATE cmocka-static
 )
 

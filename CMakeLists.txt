@@ -47,6 +47,7 @@ include(DefineOptions.cmake)
 # Подпроекты
 
 add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)
+add_subdirectory ("inih")  # INI parser library (Windows & Linux)
 
 if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)
