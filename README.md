@@ -32,25 +32,25 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 ##### dns= *{none, ip}*
 
-Open DNS server address to substitute in DNS queries (may be empty = don't change)
+> Open DNS server address to substitute in DNS queries (may be empty = don't change)
 
 ##### ip= *ip*
 
-Server's IP address
+> Server's IP address
 
 #### Section **[client]**
 
-May be multiple sections. Describes clients.
+> May be multiple sections. Describes clients.
 
 ##### id= *number in range [0, 255]*
 
-Client's ID in range [0-255].
-Corresponding client's source port is calculated as <prefix>|<id>.
-Value must be unique in configuration file.
+> Client's ID in range [0-255].
+> Corresponding client's source port is calculated as <prefix>|<id>.
+> Value must be unique in configuration file.
 
 ##### key= *string of key length*
 
-Client's AES key.
+> Client's AES key.
 
 
 ## Client
@@ -65,26 +65,26 @@ Client's AES key.
 
 ##### ip= *ip*
 
-Server's IP address
+> Server's IP address
 
 #### Section **[client]**
 
-May be multiple sections. Describes clients.
+> May be multiple sections. Describes clients.
 
 ##### id= *number in range [0, 255]*
 
-Client's ID in range [0-255].
-Corresponding client's source port is calculated as <prefix>|<id>.
-Value must be unique in configuration file.
+> Client's ID in range [0-255].
+> Corresponding client's source port is calculated as <prefix>|<id>.
+> Value must be unique in configuration file.
 
 ##### ip= *{none, ip}*
 
-IP address to use as Source address of encapsulated packets.
-If set empty -- will be used the same Source IP from plain packets.
+> IP address to use as Source address of encapsulated packets.
+> If set empty -- will be used the same Source IP from plain packets.
 
 ##### key= *string of key length*
 
-Client's AES key.
+> Client's AES key.
 
 
 ## Related repos
