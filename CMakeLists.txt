@@ -15,10 +15,12 @@ include_directories(
 	"w2e_common"
 	"inih"
 	"w2e_crypto"
+	"w2e_conntrack" # TODO remove this in release: should only be used in Linux server
 )
 link_directories(
 	"inih"
 	"w2e_crypto"
+	"w2e_conntrack" # TODO remove this in release: should only be used in Linux server
 )
 
 # Windows-specific
@@ -30,10 +32,13 @@ link_directories("WinDivert/x64")  # 64bit
 # link_directories("WinDivert/x86")  # 32bit
 endif ()
 
-# Linux-specific
+# Linux-specific # TODO uncomment this in release
 #if(UNIX)
 #include_directories(
-#	""
+#	"w2e_conntrack"
+#)
+#link_directories(
+#	"w2e_conntrack"
 #)
 #endif(UNIX)
 

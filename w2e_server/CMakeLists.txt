@@ -26,6 +26,7 @@ target_link_libraries(w2e_server
 	PUBLIC -lrt
 	PUBLIC -lm
 	PUBLIC -linih
+	PUBLIC -lw2e_conntrack
 #	PRIVATE cmocka-static
 )
 
