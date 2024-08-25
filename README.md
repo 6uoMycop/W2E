@@ -45,7 +45,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 ##### id= *number in range [0, 255]*
 
 > Client's ID in range [0-255].
-> Corresponding client's source port is calculated as <prefix>|<id>.
+> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
 > Value must be unique in configuration file.
 
 ##### key= *string of key length*
@@ -74,7 +74,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 ##### id= *number in range [0, 255]*
 
 > Client's ID in range [0-255].
-> Corresponding client's source port is calculated as <prefix>|<id>.
+> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
 > Value must be unique in configuration file.
 
 ##### ip= *{none, ip}*
