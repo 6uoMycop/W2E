@@ -30,11 +30,11 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 #### Section **[server]**
 
-##### **dns=** {none, ip}
+##### dns= *{none, ip}*
 
 Open DNS server address to substitute in DNS queries (may be empty = don't change)
 
-##### **ip=** ip
+##### ip= *ip*
 
 Server's IP address
 
@@ -42,13 +42,13 @@ Server's IP address
 
 May be multiple sections. Describes clients.
 
-##### **id=** number in range [0, 255]
+##### id= *number in range [0, 255]*
 
 Client's ID in range [0-255].
 Corresponding client's source port is calculated as <prefix>|<id>.
 Value must be unique in configuration file.
 
-##### **key=** string of key length 
+##### key= *string of key length*
 
 Client's AES key.
 
@@ -63,7 +63,7 @@ Client's AES key.
 
 #### Section **[server]**
 
-##### **ip=** ip
+##### ip= *ip*
 
 Server's IP address
 
@@ -71,18 +71,18 @@ Server's IP address
 
 May be multiple sections. Describes clients.
 
-##### **id=** number in range [0, 255]
+##### id= *number in range [0, 255]*
 
 Client's ID in range [0-255].
 Corresponding client's source port is calculated as <prefix>|<id>.
 Value must be unique in configuration file.
 
-##### **ip=** ip
+##### ip= *{none, ip}*
 
 IP address to use as Source address of encapsulated packets.
 If set empty -- will be used the same Source IP from plain packets.
 
-##### **key=** string of key length 
+##### key= *string of key length*
 
 Client's AES key.
 
@@ -92,6 +92,8 @@ Client's AES key.
 [WinDivert](https://github.com/basil00/WinDivert)
 
 [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI)
+
+[inih](https://github.com/benhoyt/inih)
 
 ## Notes
 
@@ -106,8 +108,8 @@ you should elevate to Administrator mode.
 - Example iptables rule to pass packets to `NFQUEUE` 0
 
 ```
-iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p tcp --sport 443 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
+iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p udp --dport 5256 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p udp --sport 53 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 

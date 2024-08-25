@@ -183,7 +183,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/**
 		 * Get client's IP.
 		 */
-		w2e_ctx.client_ctx[id_client].ip_client = ntohl(hdr_ip->saddr);
+		w2e_ctx.client_ctx[id_client].ip_client = hdr_ip->saddr;
 
 		/**
 		 * Decrypt payload.
@@ -318,7 +318,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 
 
 		/** For send to socket -- destination address */
-		sin.sin_addr.s_addr = w2e_ctx.client_ctx[id_client].ip_client;
+		sin.sin_addr.s_addr = ntohl(w2e_ctx.client_ctx[id_client].ip_client);
 		//sin.sin_addr.s_addr = htonl(w2e_client_ctxt.addr);
 
 
