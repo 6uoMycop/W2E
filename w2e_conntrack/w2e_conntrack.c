@@ -2,7 +2,7 @@
  * \file   w2e_conntrack.c
  * \brief  Conntrack implementation for w2e_server
  * 
- * \author ark
+ * \author 6uoMycop
  * \date   August 2024
  *********************************************************************/
 

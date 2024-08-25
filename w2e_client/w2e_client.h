@@ -2,7 +2,7 @@
  * \file   w2e_client.h
  * \brief  W2E client application (Windows)
  *
- * \author ark
+ * \author 6uoMycop
  * \date   August 2024
  *********************************************************************/
 

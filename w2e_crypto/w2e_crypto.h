@@ -2,7 +2,7 @@
  * \file   w2e_crypto.h
  * \brief  Cross-platform cryptographic interface
  * 
- * \author ark
+ * \author 6uoMycop
  * \date   August 2024
  *********************************************************************/
 

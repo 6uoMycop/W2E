@@ -2,7 +2,7 @@
  * \file   w2e_server.c
  * \brief  W2E server application (Linux)
  *
- * \author ark
+ * \author 6uoMycop
  * \date   August 2024
  *********************************************************************/
 

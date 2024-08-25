@@ -2,7 +2,7 @@
  * \file   w2e_common.h
  * \brief  Common W2E includes and macros (cross-platform)
  * 
- * \author ark
+ * \author 6uoMycop
  * \date   August 2024
  *********************************************************************/
 
