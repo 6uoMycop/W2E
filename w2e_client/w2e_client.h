@@ -17,6 +17,7 @@
 #include "w2e_common.h"
 #include "inih.h"
 #include "w2e_crypto.h"
+#include "w2e_conntrack.h" //@TODO Remove this after dev
 #include "windivert.h"
 
 

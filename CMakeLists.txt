@@ -58,6 +58,8 @@ include(DefineOptions.cmake)
 add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)
 add_subdirectory ("inih")  # INI parser library (Windows & Linux)
 
+add_subdirectory ("w2e_conntrack")  # Conntrack (Linux) //@TODO move to Linux
+
 if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)
 endif ()

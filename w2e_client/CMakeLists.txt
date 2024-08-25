@@ -30,6 +30,7 @@ target_link_libraries(w2e_client
 	PUBLIC WinDivert
 	PUBLIC wsock32
 	PUBLIC Ws2_32
+	PUBLIC w2e_conntrack #@TODO delete this after dev
 #	PRIVATE cmocka-static
 )
 
