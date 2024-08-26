@@ -11,14 +11,14 @@
 
 You can pass custom `config` file as the only w2e_client/w2e_server CLI argument.
 
-If none provided, program will try to use `default.config`
+If none provided, program will try to use `default.config`.
 
 
 ## Server
 
 **OS:** `Linux`
 
-**Operating principle:** Pass packets to userspace via `NFQUEUE`
+**Operating principle:** Pass packets to userspace via `NFQUEUE`.
 
 **Dependencies:**
 
@@ -57,7 +57,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 **OS:** `Windows`
 
-**Operating principle:** Pass packets to userspace via `WinDivert`
+**Operating principle:** Pass packets to userspace via `WinDivert`.
 
 ### Configuration file
 
@@ -65,7 +65,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 ##### ip= *ip*
 
-> Server's IP address
+> Server's IP address.
 
 #### Section **[client]**
 
@@ -94,6 +94,10 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI)
 
 [inih](https://github.com/benhoyt/inih)
+
+[xxHash](https://github.com/Cyan4973/xxHash)
+
+[Linux](https://github.com/torvalds/linux)
 
 ## Notes
 
