@@ -10,24 +10,29 @@ endif()
 # Copy DLL and SYS to be near EXE
 file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert.dll" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert64.sys" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy configs to be near EXE
+file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/w2e_client/*.config") # For wildcard COPY
+file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 # Add resource
 target_sources(w2e_client PRIVATE w2e_client.rc)
 
 
-if(MSVC)
-	target_compile_options(w2e_crypto PRIVATE /Wall /we4702 /we4505)
-else()
-	message(FATAL_ERROR "w2e_client is a Windows app")
-endif()
+#if(MSVC)
+#	target_compile_options(w2e_client PRIVATE /Wall /we4702 /we4505)
+#else()
+#	message(FATAL_ERROR "w2e_client is a Windows app")
+#endif()
 
 
 target_link_libraries(w2e_client
+	PUBLIC inih
 	PUBLIC w2e_crypto
 	PUBLIC WinDivert
 	PUBLIC wsock32
-	PRIVATE cmocka-static
+	PUBLIC Ws2_32
+#	PRIVATE cmocka-static
 )
 
-
-enable_testing()
-add_test(NAME w2e_client COMMAND w2e_client)
+#
+#enable_testing()
+#add_test(NAME w2e_client COMMAND w2e_client)

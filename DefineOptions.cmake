@@ -1,1 +1,5 @@
 add_compile_definitions(W2E_DEBUG)
+add_compile_definitions(W2E_INI_DEFAULT_NAME="default.config")
+add_compile_definitions(W2E_MAX_CLIENTS=1)
+#add_compile_definitions(W2E_CT_SESSION_TTL=600)
+add_compile_definitions(W2E_CT_SESSION_TTL=10)

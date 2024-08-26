@@ -2,7 +2,7 @@
  * \file   w2e_client.c
  * \brief  W2E client application (Windows)
  *
- * \author ark
+ * \author 6uoMycop
  * \date   August 2024
  *********************************************************************/
 
@@ -23,8 +23,85 @@ static volatile uint8_t client_stop = 0;
  */
 w2e_ctrs_t w2e_ctrs = { 0 };
 
+/**
+ * Config.
+ */
+w2e_cfg_client_t w2e_cfg_client = { 0 };
 
-static HANDLE w2e_client__init(char* filter, UINT64 flags)
+
+/**
+ * INI config parser.
+ */
+static int __w2e_client__ini_handler(void* cfg, const char* section, const char* name, const char* value)
+{
+	w2e_cfg_client_t* pconfig = (w2e_cfg_client_t*)cfg;
+
+	unsigned int tmp_len = 0;
+
+#define MATCH(s, n) (strcmp(section, s) == 0 && strcmp(name, n) == 0)
+	if (MATCH("client", "id"))
+	{
+		pconfig->id = atoi(value);
+		if (pconfig->id > 0xFF)
+		{
+			w2e_print_error("INI: [client] id: value must be in (0-255). Given %s\n", value);
+			return 0;
+		}
+		/** Port number calculation */
+		pconfig->port_client = htons(W2E_CLIENT_PORT_HB | pconfig->id);
+
+		w2e_log_printf("\tINI: [client] id: %s (Port in net order: 0x%04X)\n", value, pconfig->port_client);
+	}
+	else if (MATCH("client", "ip"))
+	{
+		tmp_len = strlen(value);
+		if (tmp_len == 0)
+		{
+			pconfig->ip_client = 0;
+		}
+		else if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
+		{
+			w2e_print_error("INI: [client] ip: wrong IP %s\n", value);
+			return 0;
+		}
+
+		w2e_log_printf("\tINI: [client] ip: %s (Net order 0x%08X)\n", tmp_len ? value : "COPY SAME", pconfig->ip_server);
+	}
+	else if (MATCH("server", "ip"))
+	{
+		if (inet_pton(AF_INET, value, &(pconfig->ip_server)) != 1)
+		{
+			w2e_print_error("INI: [server] ip: wrong IP %s\n", value);
+			return 0;
+		}
+
+		w2e_log_printf("\tINI: [server] ip: %s (Net order 0x%08X)\n", value, pconfig->ip_server);
+	}
+	else if (MATCH("client", "key"))
+	{
+		tmp_len = strlen(value) - 1;
+		if (tmp_len != W2E_KEY_LEN)
+		{
+			w2e_print_error("INI: [client] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
+		}
+		memcpy(pconfig->key, value, W2E_KEY_LEN);
+
+		w2e_log_printf("\tINI: [client] key: %s\n", value);
+	}
+	else
+	{
+		w2e_print_error("INI: unknown section/name, error\n");
+		return 0;
+	}
+#undef MATCH
+	return 1;
+}
+
+
+/**
+ * WinDivert initialization.
+ */
+static HANDLE __w2e_client__init(char* filter, UINT64 flags)
 {
 	LPTSTR errormessage = NULL;
 	DWORD errorcode = 0;
@@ -95,6 +172,9 @@ static HANDLE w2e_client__init(char* filter, UINT64 flags)
 }
 
 
+/**
+ * WinDivert deinitialization.
+ */
 static int __w2e_client__deinit(HANDLE handle)
 {
 	if (handle)
@@ -107,7 +187,10 @@ static int __w2e_client__deinit(HANDLE handle)
 }
 
 
-static void w2e_client__deinit_all(HANDLE* filters, int filter_num)
+/**
+ * WinDivert deinitialization of all filters.
+ */
+static void __w2e_client__deinit_all(HANDLE* filters, int filter_num)
 {
 	w2e_log_printf("Deinitialize...\n");
 	for (int i = 0; i < filter_num; i++)
@@ -117,18 +200,24 @@ static void w2e_client__deinit_all(HANDLE* filters, int filter_num)
 }
 
 
-static void w2c_client__sigint_handler(int sig)
+/**
+ * SIGINT handler.
+ */
+static void __w2c_client__sigint_handler(int sig)
 {
 	(void)sig;
 	
 	client_stop = 1;
-	w2e_client__deinit_all(g_filters, g_filter_num);
+	__w2e_client__deinit_all(g_filters, g_filter_num);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
 
 
-static BOOL w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packetLen, UINT* pSendLen, const WINDIVERT_ADDRESS* pAddr)
+/**
+ * Send WinDivert packet.
+ */
+static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packetLen, UINT* pSendLen, const WINDIVERT_ADDRESS* pAddr)
 {
 	DWORD errorcode = 0;
 
@@ -168,7 +257,10 @@ static BOOL w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT packet
 }
 
 
-static void w2c_client__main_loop(HANDLE w_filter)
+/**
+ * Client's main packet processing loop.
+ */
+static void __w2c_client__main_loop(HANDLE w_filter)
 {
 	DWORD					errorcode = 0;
 
@@ -238,7 +330,8 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						/**
 						 * Substitute local IP.
 						 */
-						hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						hdr_pre_ip->DstAddr = htonl(0xc0a832f5); // My src address
+						//hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
 
 						/**
 						 * Recalculate CRCs (all).
@@ -251,7 +344,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 * Send modified packet.
 						 */
 						w2e_dbg_dump(len_send, pkt[1]);
-						w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						__w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
 					else if (addr.Outbound) /* Any outbound traffic */
@@ -279,7 +372,7 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
 
 						/** New UDP header */
-						hdr_pre_udp->SrcPort = htons(0x8880);
+						hdr_pre_udp->SrcPort = w2e_cfg_client.port_client;
 						hdr_pre_udp->Length = htons(len_send + sizeof(w2e_template_udph));
 
 
@@ -288,11 +381,14 @@ static void w2c_client__main_loop(HANDLE w_filter)
 
 						/** New IPv4 header */
 						hdr_pre_ip->Length = htons((u_short)(len_send));
-						hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
-						hdr_pre_ip->DstAddr = htonl(0x23E26FD3); // Remote w2e server address // @TODO Substitute real address
-						//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
-						//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
+						/** Configured in INI address or the same address from plain */
+						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client ? w2e_cfg_client.ip_client : hdr_ip->SrcAddr;
+						/** Remote w2e server address */
+						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_server;
+
+						//hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						//hdr_pre_ip->SrcAddr = htonl(0xc0a832f5); // My src address
 
 						/**
 						 * Recalculate CRCs (IPv4 and UDP).
@@ -304,13 +400,13 @@ static void w2c_client__main_loop(HANDLE w_filter)
 						 * Send modified packet.
 						 */
 						w2e_dbg_dump(len_send, pkt[1]);
-						w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
+						__w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
 				}
 
 				/** Send unmodified packet */
-				w2e_client__pkt_send(w_filter, pkt[0], len_recv, NULL, &addr);
+				__w2e_client__pkt_send(w_filter, pkt[0], len_recv, NULL, &addr);
 			}
 			else
 			{
@@ -352,29 +448,41 @@ static void w2c_client__main_loop(HANDLE w_filter)
  */
 int main(int argc, char* argv[])
 {
-	(void)argc;
-	(void)argv;
-
 	HANDLE w_filter = NULL;
+	const char ini_default[] = W2E_INI_DEFAULT_NAME;
+	const char* ini_fname = ini_default;
 
 	w2e_log_printf("Client is starting...\n");
 
 	/**
 	 * SIGINT handler.
 	 */
-	signal(SIGINT, w2c_client__sigint_handler);
+	signal(SIGINT, __w2c_client__sigint_handler);
 
 	/**
 	 * shmm create.
 	 * @TODO
 	 */
 
+	
+	/**
+	 * INI parser.
+	 */
+	if (argc > 1)
+	{
+		ini_fname = argv[1];
+	}
+	w2e_log_printf("INI: Reading config file %s...\n", ini_fname);
+	if (ini_parse(ini_fname, __w2e_client__ini_handler, &w2e_cfg_client) != 0)
+	{
+		w2e_print_error("INI: Error in file %s\n", ini_fname);
+		return 1;
+	}
 
 	/**
 	 * Crypto lib init.
 	 */
-
-	if (w2e_crypto_init((const u8*)"0000000000000000", W2E_KEY_LEN) != 0)
+	if (w2e_crypto_init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
 		return 1;
@@ -384,21 +492,26 @@ int main(int argc, char* argv[])
 	/**
 	 * Filters initialization.
 	 */
-	 //g_filters[g_filter_num] = w2e_client__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	 //g_filters[g_filter_num] = w2e_client__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
-	g_filters[g_filter_num] = w2e_client__init(
+	 //g_filters[g_filter_num] = __w2e_client__init("outbound and !loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	 //g_filters[g_filter_num] = __w2e_client__init("!loopback and (tcp.DstPort == 80 or udp.DstPort == 53)", 0);
+	g_filters[g_filter_num] = __w2e_client__init(
 		" !loopback"
 		" and ip"
 		//" and (tcp or udp)"
-		" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211 or ip.SrcAddr == 104.248.25.131 or ip.DstAddr == 104.248.25.131)"
-		" and (tcp.DstPort == 443 or tcp.DstPort == 80 or udp.SrcPort == 5256)"
+		//" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211)"
+		" and ("
+			//" tcp.DstPort == 443 or tcp.DstPort == 80"
+			//" or udp.DstPort == 53"
+			" udp.DstPort == 53"
+			" or udp.SrcPort == 5256"
+		")"
 		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
 		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
 		, 0);
 	w_filter = g_filters[g_filter_num];
 	g_filter_num++;
 
-	w2c_client__main_loop(w_filter);
+	__w2c_client__main_loop(w_filter);
 
 
 	/**

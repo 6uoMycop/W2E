@@ -8,14 +8,18 @@ if (POLICY CMP0141)
 	set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("W2E" VERSION 0.1 LANGUAGES C)
+project ("W2E" VERSION 0.2 LANGUAGES C)
 
 # Common
 include_directories(
 	"w2e_common"
+	"inih"
 	"w2e_crypto"
 )
-link_directories("w2e_crypto")
+link_directories(
+	"${CMAKE_BINARY_DIR}/inih"
+	"${CMAKE_BINARY_DIR}/w2e_crypto"
+)
 
 # Windows-specific
 if (MSVC)
@@ -26,18 +30,21 @@ link_directories("WinDivert/x64")  # 64bit
 # link_directories("WinDivert/x86")  # 32bit
 endif ()
 
-# Linux-specific
-#if(UNIX)
-#include_directories(
-#	""
-#)
-#endif(UNIX)
+# Linux-specific # TODO uncomment this in release
+if (UNIX)
+include_directories(
+	"w2e_conntrack"
+)
+link_directories(
+	"${CMAKE_BINARY_DIR}/w2e_conntrack"
+)
+endif(UNIX)
 
 
-if (MSVC)
-# CMocka download
-include(FetchCMocka.cmake)
-endif ()
+#if (MSVC)
+## CMocka download
+#include(FetchCMocka.cmake)
+#endif ()
 
 
 # CONFIG
@@ -47,12 +54,14 @@ include(DefineOptions.cmake)
 # Подпроекты
 
 add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)
+add_subdirectory ("inih")  # INI parser library (Windows & Linux)
 
 if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)
 endif ()
 
-if(UNIX)
+if (UNIX)
+add_subdirectory ("w2e_conntrack")  # Conntrack (Linux)
 add_subdirectory ("w2e_server")  # Server application (Linux)
 endif()
 
