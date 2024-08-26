@@ -12,7 +12,7 @@ endif()
 if(MSVC)
 	message(FATAL_ERROR "w2e_server is a Linux app")
 else()
-	target_compile_options(w2e_crypto PRIVATE -Wall -Wextra -Wpedantic -Werror)
+	target_compile_options(w2e_server PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # Copy configs to be near executable

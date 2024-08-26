@@ -19,12 +19,14 @@
 #include <linux/udp.h>
 #include <linux/types.h>
 #include <linux/socket.h>
-#include <linux/netfilter.h>		
-#include <libnetfilter_queue/libnetfilter_queue.h>
+#include <linux/netfilter.h>
+///#include <libnetfilter_queue/libnetfilter_queue.h>
 
 #include "w2e_common.h"
-#include "inih.h"
 #include "w2e_crypto.h"
+#include "w2e_conntrack.h"
+
+#include "inih.h"
 
 
 #ifndef W2E_MAX_CLIENTS

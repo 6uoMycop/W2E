@@ -17,6 +17,10 @@
 
 
 /**
+ * AES.
+ */
+
+/**
  * Initialize cryptographic context.
  */
 int w2e_crypto_init(const u8* key, size_t len);

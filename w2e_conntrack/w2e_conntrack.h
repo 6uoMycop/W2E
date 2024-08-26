@@ -12,9 +12,12 @@
 
 
 #include "w2e_common.h"
+#include "w2e_crypto.h"
+#include "w2e_linux_list.h"
 #include <time.h>
-#include <stdatomic.h>
-//@TODO #include "linux/xxhash.h"
+#include <string.h>
+#include <malloc.h>
+
 
 
 #ifndef W2E_CT_SESSION_TTL
@@ -24,11 +27,15 @@
 #define W2E_CT_SESSION_TTL 300
 #endif // !W2E_CT_SESSION_TTL
 
+/**
+ * Hash length in bits.
+ */
+#define W2E_CT_HASHSIZE 16
 
 /**
- * Number of conntrack buckets. Equals hash length.
+ * Number of conntrack buckets.
  */
-#define W2E_CT_BUCKETS UINT32_MAX
+#define W2E_CT_BUCKETS (1 << W2E_CT_HASHSIZE)
 
 
 /**
@@ -47,21 +54,25 @@ typedef struct {
  */
 typedef struct {
 	/** Linked list */
-	w2e_ct_entry_t* prev;
-	w2e_ct_entry_t* next;
-
-	/** Atomic entry status. 0 - unused, 1 - alive, 2 - mark to deletion */
-	//_Atomic char status;
-	char status; //@TODO atomic
+	struct list_head list;
 	/** 5-tuple of connection */
 	w2e_ct_tuple_t tuple;
-	/** 5-tuple hash */
-	uint32_t hash;
 	/** Timeout timer */
 	uint32_t timeout;
 	/** Corresponding client ID */
 	uint16_t id_client;
+	/** Bucket mutex pointer */
+
 } w2e_ct_entry_t;
+
+
+int w2e_conntrack__init(void);
+
+int w2e_conntrack__deinit(void);
+
+w2e_ct_entry_t* w2e_conntrack__create(uint8_t* l3, uint8_t* l4, uint16_t client);
+
+w2e_ct_entry_t* w2e_conntrack__resolve(uint8_t* l3, uint8_t* l4);
 
 
 #endif /* __W2E_CONNTRACK_H */

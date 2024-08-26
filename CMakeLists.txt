@@ -15,12 +15,10 @@ include_directories(
 	"w2e_common"
 	"inih"
 	"w2e_crypto"
-	"w2e_conntrack" # TODO remove this in release: should only be used in Linux server
 )
 link_directories(
-	"inih"
-	"w2e_crypto"
-	"w2e_conntrack" # TODO remove this in release: should only be used in Linux server
+	"${CMAKE_BINARY_DIR}/inih"
+	"${CMAKE_BINARY_DIR}/w2e_crypto"
 )
 
 # Windows-specific
@@ -33,14 +31,14 @@ link_directories("WinDivert/x64")  # 64bit
 endif ()
 
 # Linux-specific # TODO uncomment this in release
-#if(UNIX)
-#include_directories(
-#	"w2e_conntrack"
-#)
-#link_directories(
-#	"w2e_conntrack"
-#)
-#endif(UNIX)
+if (UNIX)
+include_directories(
+	"w2e_conntrack"
+)
+link_directories(
+	"${CMAKE_BINARY_DIR}/w2e_conntrack"
+)
+endif(UNIX)
 
 
 #if (MSVC)
@@ -58,13 +56,12 @@ include(DefineOptions.cmake)
 add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)
 add_subdirectory ("inih")  # INI parser library (Windows & Linux)
 
-add_subdirectory ("w2e_conntrack")  # Conntrack (Linux) //@TODO move to Linux
-
 if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)
 endif ()
 
 if (UNIX)
+add_subdirectory ("w2e_conntrack")  # Conntrack (Linux)
 add_subdirectory ("w2e_server")  # Server application (Linux)
 endif()
 

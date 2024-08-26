@@ -12,7 +12,8 @@ endif()
 
 
 if (MSVC)
-	target_compile_options(w2e_conntrack PRIVATE /experimental:c11atomics /std:c11 /Wall /we4702 /we4505)
+	target_compile_options(w2e_conntrack PRIVATE /experimental:c11atomics /Wall /we4702 /we4505)
 else()
-	target_compile_options(w2e_conntrack PRIVATE -Wall -Wextra -Wpedantic -Werror)
+	target_compile_options(w2e_conntrack PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
