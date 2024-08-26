@@ -20,7 +20,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 #include <linux/netfilter.h>
-///#include <libnetfilter_queue/libnetfilter_queue.h>
+#include <libnetfilter_queue/libnetfilter_queue.h>
 
 #include "w2e_common.h"
 #include "w2e_crypto.h"
@@ -33,7 +33,7 @@
 /**
  * Maximum number of clients.
  */
-#define W2E_MAX_CLIENTS 1
+#define W2E_MAX_CLIENTS 2
 #endif // !W2E_MAX_CLIENTS
 
 

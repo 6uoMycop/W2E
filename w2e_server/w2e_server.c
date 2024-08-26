@@ -9,7 +9,7 @@
 
 #include "w2e_server.h"
 
-#if 0
+
 /**
  * Global counters.
  */
@@ -124,12 +124,13 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	u_int32_t id;
 	struct nfqnl_msg_packet_hdr* ph;
 	unsigned char* pkt;
-	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1;
-	struct udphdr* hdr_udp, *hdr_pre_udp = &(pkt1[20]);
+	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1, *hdr_dec_ip = pkt1;
+	struct udphdr* hdr_udp, *hdr_pre_udp = &(pkt1[20]), *hdr_dec_udp;
 	u_int32_t len_recv;
 	u_int32_t len_send;
 	struct sockaddr_in sin = { .sin_family = AF_INET, .sin_addr = { 0 } };
 	uint16_t id_client = 0;
+	w2e_ct_entry_t* ct = NULL;
 
 	w2e_ctrs.total_rx++;
 
@@ -191,9 +192,14 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[W2E_PREAMBLE_SIZE]), pkt1, len_recv - W2E_PREAMBLE_SIZE);
 
 		/**
+		 * Get decrypted packet's transport header address.
+		 */
+		hdr_dec_udp = &(pkt1[hdr_ip->ihl * 4]);
+
+		/**
 		 * Mangle source address.
 		 */
-		hdr_pre_ip->saddr = w2e_ctx.ip_server;
+		hdr_dec_ip->saddr = w2e_ctx.ip_server;
 		//hdr_pre_ip->saddr = htonl(0x0a800002);
 
 		/**
@@ -201,37 +207,42 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 */
 		if (w2e_ctx.ip_dns)
 		{
-			if (hdr_pre_ip->protocol == 0x11 // UDP
-				&& hdr_pre_udp->dest == htons(53)) // DNS
+			if (hdr_dec_ip->protocol == 0x11 // UDP
+				&& hdr_dec_udp->dest == htons(53)) // DNS
 			{
 				/** Remember client's DNS server address */
-				w2e_ctx.client_ctx[id_client].ip_dns_last = hdr_pre_ip->daddr;
+				w2e_ctx.client_ctx[id_client].ip_dns_last = hdr_dec_ip->daddr;
 				/** Substitute ours DNS server */
-				hdr_pre_ip->daddr = w2e_ctx.ip_dns;
-				//hdr_pre_ip->daddr = htonl(W2E_DNS);
+				hdr_dec_ip->daddr = w2e_ctx.ip_dns;
+				//hdr_dec_ip->daddr = htonl(W2E_DNS);
 			}
 		}
 
 		/** For send to socket */
-		sin.sin_addr.s_addr = ntohl(hdr_pre_ip->daddr);
+		sin.sin_addr.s_addr = ntohl(hdr_dec_ip->daddr);
 
 
 		/**
 		 * Transport Layer CRC of decapsulated packet.
 		 */
-		if (hdr_pre_ip->protocol == 0x11) // UDP
+		if (hdr_dec_ip->protocol == 0x11) // UDP
 		{
-			nfq_udp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
+			nfq_udp_compute_checksum_ipv4(hdr_dec_udp, hdr_dec_ip);
 		}
-		else if (hdr_pre_ip->protocol == 0x06) // TCP
+		else if (hdr_dec_ip->protocol == 0x06) // TCP
 		{
-			nfq_tcp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
+			nfq_tcp_compute_checksum_ipv4(hdr_dec_udp, hdr_dec_ip);
 		}
 
 		/**
 		 * Recalculate CRC (IPv4).
 		 */
-		nfq_ip_set_checksum(hdr_pre_ip);
+		nfq_ip_set_checksum(hdr_dec_ip);
+
+		/**
+		 * Create conntrack entry.
+		 */
+		w2e_conntrack__create(hdr_dec_ip, hdr_dec_udp, id_client);
 
 		/** Send */
 		goto send_modified;
@@ -242,9 +253,13 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		w2e_dbg_printf("Encap\n");
 
 		/**
-		 * Calculate client's id.
-		 * TODO real calculation.
+		 * Get client's id from conntrack entry.
 		 */
+		ct = w2e_conntrack__resolve(hdr_ip, hdr_udp);
+		if (!ct) /** Not resolved */
+		{
+			goto send_original;
+		}
 		id_client = 0;
 
 		/**
@@ -370,6 +385,15 @@ static void w2e_server_deinit()
 {
 	server_stop = 1;
 
+	/**
+	 * Conntrack deinit.
+	 */
+	w2e_log_printf("Conntrack deinit\n");
+	if (w2e_conntrack__deinit() != 0)
+	{
+		w2e_print_error("Conntrack deinit error\n");
+	}
+
 	w2e_log_printf("unbinding from queue 0\n");
 	nfq_destroy_queue(qh);
 
@@ -411,6 +435,15 @@ int main(int argc, char** argv)
 	w2e_log_printf("Server is starting...\n");
 
 	signal(SIGINT, sig_handler);
+
+	/**
+	 * Conntrack init.
+	 */
+	if (w2e_conntrack__init() != 0)
+	{
+		w2e_print_error("Conntrack init error\n");
+		return 1;
+	}
 
 	/**
 	 * TX raw socket init.
@@ -514,62 +547,4 @@ int main(int argc, char** argv)
 
 
 	return 0;
-}
-
-
-#endif
-
-
-int main()
-{
-	uint8_t a[] = {
-		0x45, 0x00, 0x00, 0x34, 0x8a, 0xfd, 0x40, 0x00, 0x3e,
-		0x06,
-		0x96, 0xbd,
-		0x0c, 0x00, 0x02, 0x05,
-		0x0c, 0x00, 0x01, 0x05,
-		0x13, 0xc4,
-		0x17, 0xc2,
-		0x24, 0x00, 0xf1, 0xff, 0x63, 0xc5, 0x06, 0xe1, 0x80, 0x10, 0x7d, 0x2c, 0xa7, 0x95,
-		0x00, 0x00, 0x01, 0x01, 0x08, 0x0a, 0xfd, 0x6d, 0xbc, 0x41, 0xc1, 0xd0, 0x0f, 0x45
-	};
-	uint8_t b[] = {
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11,
-		0x00, 0x00,
-		0x01, 0x02, 0x03, 0x04,
-		0x11, 0x12, 0x13, 0x14,
-		0x11, 0xaa,
-		0x22, 0xbb
-	};
-	w2e_ct_entry_t* ct = NULL;
-
-	/**
-	 * Conntrack test.
-	 */
-
-
-	w2e_conntrack__init();
-
-	w2e_conntrack__create(&(a[0]), &(a[20]), 1);
-	w2e_conntrack__create(&(b[0]), &(b[20]), 3);
-
-	ct = w2e_conntrack__resolve(&(a[0]), &(a[20]));
-	ct = w2e_conntrack__resolve(&(b[0]), &(b[20]));
-	ct = w2e_conntrack__resolve(&(a[0]), &(a[20]));
-
-	
-	sleep(60);
-	
-	w2e_conntrack__deinit();
-
-
-
-	return 0;
-
-
-
-
-
-
 }
