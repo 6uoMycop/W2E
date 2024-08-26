@@ -503,6 +503,8 @@ int main(int argc, char* argv[])
 			//" tcp.DstPort == 443 or tcp.DstPort == 80"
 			" ((tcp.DstPort == 443 or tcp.DstPort == 80) and ip.DstAddr != 35.226.111.211)"
 			" or udp.DstPort == 53"
+			" or udp.DstPort == 443" /* QUIC */
+			" or udp.DstPort == 1900" /* QUIC */
 			//" udp.DstPort == 53"
 			" or udp.SrcPort == 5256"
 		")"
