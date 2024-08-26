@@ -11,13 +11,14 @@
 #define __W2E_CONNTRACK_H
 
 
-#include "w2e_common.h"
-#include "w2e_crypto.h"
-#include "w2e_linux_list.h"
 #include <time.h>
 #include <string.h>
 #include <malloc.h>
+#include <pthread.h>
 
+#include "w2e_common.h"
+#include "w2e_crypto.h"
+#include "w2e_linux_list.h"
 
 
 #ifndef W2E_CT_SESSION_TTL
@@ -61,8 +62,8 @@ typedef struct {
 	uint32_t timeout;
 	/** Corresponding client ID */
 	uint16_t id_client;
-	/** Bucket mutex pointer */
-
+	/** Bucket mutex (initialized once per bucket only in head) //@TODO make adequate sync */
+	pthread_mutex_t mutex;
 } w2e_ct_entry_t;
 
 

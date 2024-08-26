@@ -12,8 +12,7 @@ endif()
 
 
 if (MSVC)
-	target_compile_options(w2e_conntrack PRIVATE /experimental:c11atomics /Wall /we4702 /we4505)
+	message(FATAL_ERROR "w2e_conntrack is a Linux lib")
 else()
 	target_compile_options(w2e_conntrack PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-

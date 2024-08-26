@@ -27,7 +27,8 @@ embedded environments without dynamic allocation. */
  * Prototypes.
  */
 
-static uint32_t __w2e_conntrack_reciprocal_scale(uint32_t val, uint32_t ep_ro);
+static void* __w2e_conntrack__gc_worker(void* vptr_args);
+static uint32_t __w2e_conntrack__reciprocal_scale(uint32_t val, uint32_t ep_ro);
 static uint32_t __w2e_conntrack__seconds(void);
 static uint32_t __w2e_conntrack__hash_raw(const w2e_ct_tuple_t* tuple);
 static uint32_t __w2e_conntrack__hash(const w2e_ct_tuple_t* tuple);
@@ -37,6 +38,7 @@ static void __w2e_conntrack__create_tuple(uint32_t a0, uint32_t a1, uint16_t p0,
 static void __w2e_conntrack__create_tuple_raw(uint8_t* l3, uint8_t* l4, w2e_ct_tuple_t* tuple);
 static void __w2e_conntrack__insert(w2e_ct_entry_t* entry);
 w2e_ct_entry_t* __w2e_conntrack__resolve(const w2e_ct_tuple_t* tuple);
+static void __w2e_conntrack__upd_timeout(w2e_ct_entry_t* entry);
 static w2e_ct_entry_t* __w2e_conntrack__create(const w2e_ct_tuple_t* tuple, uint16_t client);
 
 
@@ -45,9 +47,56 @@ static w2e_ct_entry_t* __w2e_conntrack__create(const w2e_ct_tuple_t* tuple, uint
  */
 static w2e_ct_entry_t *w2e_ct = NULL;
 
+/**
+ * Garbage collector thread.
+ */
+static pthread_t gc_thread;
+static volatile int gc_stop = 0;
+
 
 /**
- * __w2e_conntrack_reciprocal_scale - "scale" a value into range [0, ep_ro)
+ * Garbage collector thread worker.
+ */
+static void* __w2e_conntrack__gc_worker(void* vptr_args)
+{
+	(void)vptr_args;
+
+	w2e_ct_entry_t* bucket = NULL;
+	w2e_ct_entry_t* ct = NULL;
+	w2e_ct_entry_t* tmp = NULL;
+
+	while (!gc_stop)
+	{
+		/** In every bucket */
+		for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)
+		{
+			/** Get bucket */
+			bucket = &(w2e_ct[i]);
+			/** Check list */
+			list_for_each_entry_safe(ct, tmp, &(bucket->list), list)
+			{
+				if (__w2e_conntrack__is_expired(ct))
+				{
+					pthread_mutex_lock(&(bucket->mutex));
+					w2e_dbg_printf("Deleted ct entry by timeout: 0x%08X 0x%08X 0x%04X 0x%04X 0x%02X\n",
+									ct->tuple.addr[0], ct->tuple.addr[1], ct->tuple.port[0], ct->tuple.port[1], ct->tuple.proto);
+					/* Remove the component from the list */
+					list_del(&(ct->list));
+					/* Free the memory */
+					free(ct);
+					pthread_mutex_unlock(&(bucket->mutex));
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+
+
+
+/**
+ * __w2e_conntrack__reciprocal_scale - "scale" a value into range [0, ep_ro)
  * @val: value
  * @ep_ro: right open interval endpoint
  *
@@ -60,7 +109,7 @@ static w2e_ct_entry_t *w2e_ct = NULL;
  *
  * Return: a result based on val in interval [0, ep_ro).
  */
-static inline uint32_t __w2e_conntrack_reciprocal_scale(uint32_t val, uint32_t ep_ro)
+static inline uint32_t __w2e_conntrack__reciprocal_scale(uint32_t val, uint32_t ep_ro)
 {
 	return (uint32_t)(((uint64_t)val * ep_ro) >> 32);
 }
@@ -100,7 +149,7 @@ static inline uint32_t __w2e_conntrack__hash_raw(const w2e_ct_tuple_t* tuple)
  */
 static inline uint32_t __w2e_conntrack__hash(const w2e_ct_tuple_t* tuple)
 {
-	return __w2e_conntrack_reciprocal_scale(__w2e_conntrack__hash_raw(tuple), W2E_CT_HASHSIZE);
+	return __w2e_conntrack__reciprocal_scale(__w2e_conntrack__hash_raw(tuple), W2E_CT_HASHSIZE);
 }
 
 
@@ -184,7 +233,9 @@ static inline void __w2e_conntrack__insert(w2e_ct_entry_t* entry)
 	bucket = &(w2e_ct[idx]);
 
 	/** Insert entry to list */
+	pthread_mutex_lock(&(bucket->mutex));
 	list_add_tail(&(entry->list), &(bucket->list));
+	pthread_mutex_unlock(&(bucket->mutex));
 
 	w2e_dbg_printf("Inserting to bucket %d\n", idx);
 }
@@ -231,12 +282,26 @@ w2e_ct_entry_t* __w2e_conntrack__resolve(const w2e_ct_tuple_t* tuple)
 		ct = list_entry(p, w2e_ct_entry_t, list);
 		if (__w2e_conntrack__compare_tuples(&(ct->tuple), tuple))
 		{
+			/** Set timeout */
+			pthread_mutex_lock(&(bucket->mutex));
+			__w2e_conntrack__upd_timeout(ct);
+			pthread_mutex_unlock(&(bucket->mutex));
+
 			return ct;
 		}
 	}
 
 	/** None found */
 	return NULL;
+}
+
+
+/**
+ * Update entry timeout.
+ */
+static inline void __w2e_conntrack__upd_timeout(w2e_ct_entry_t* entry)
+{
+	entry->timeout = __w2e_conntrack__seconds() + W2E_CT_SESSION_TTL;
 }
 
 
@@ -265,7 +330,7 @@ static inline w2e_ct_entry_t* __w2e_conntrack__create(const w2e_ct_tuple_t* tupl
 	/** Copy 5-tuple */
 	memcpy(&(entry->tuple), tuple, sizeof(w2e_ct_tuple_t));
 	/** Set timeout */
-	entry->timeout = __w2e_conntrack__seconds() + W2E_CT_SESSION_TTL;
+	__w2e_conntrack__upd_timeout(entry);
 	/** Set client ID */
 	entry->id_client = client;
 
@@ -320,11 +385,17 @@ int w2e_conntrack__init(void)
 		return 1;
 	}
 
-	/** Init list in every bucket */
 	for (int i = 0; i < W2E_CT_BUCKETS; i++)
 	{
+		/** Init list in every bucket */
 		INIT_LIST_HEAD(&(w2e_ct[i].list));
+		/** Init mutex in every bucket //@TODO make adequate sync */
+		pthread_mutex_init(&(w2e_ct[i].mutex), NULL);
 	}
+
+	/** Garbage collector thread start */
+	pthread_create(&gc_thread, NULL, __w2e_conntrack__gc_worker, NULL);
+	pthread_detach(gc_thread);
 
 	return 0;
 }
@@ -346,6 +417,9 @@ int w2e_conntrack__deinit(void)
 		w2e_print_error("Conntrack seems to be uninitialized already\n");
 		return 1;
 	}
+
+	/** Garbage collector thread stop */
+	gc_stop = 1;
 
 	/** In every bucket */
 	for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)

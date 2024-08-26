@@ -22,11 +22,11 @@ file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(w2e_server
 	PUBLIC -lw2e_crypto
 	PUBLIC -lnetfilter_queue
-	PUBLIC -lpthread
 	PUBLIC -lrt
 	PUBLIC -lm
 	PUBLIC -linih
 	PUBLIC -lw2e_conntrack
+	PUBLIC -pthread
 #	PRIVATE cmocka-static
 )
 
