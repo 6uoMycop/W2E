@@ -15,6 +15,7 @@
 #include <string.h>
 #include <malloc.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "w2e_common.h"
 #include "w2e_crypto.h"
