@@ -1,6 +1,6 @@
 # W2E
 
-**Window to Europe** — secured tunneling solution.
+**Window to Europe** â€” secured tunneling solution.
 
 ## Scheme
 
@@ -66,6 +66,13 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 **OS:** `Windows`
 
 **Operating principle:** Pass packets to userspace via `WinDivert`.
+
+### Build
+
+```
+cmake.exe -S . -B build
+cmake.exe --build ./build --config Release
+```
 
 ### Configuration file
 
