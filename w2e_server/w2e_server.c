@@ -212,6 +212,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			if (hdr_dec_ip->protocol == 0x11 // UDP
 				&& hdr_dec_udp->dest == htons(53)) // DNS
 			{
+				w2e_dbg_printf("DNS processing OUT id_client=%d (plain sport=0x%04X)\n", id_client, ntohs(hdr_dec_udp->source));
 				/** Remember client's DNS server address */
 				w2e_ctx.client_ctx[id_client].ip_dns_last = hdr_dec_ip->daddr;
 				/** Substitute ours DNS server */
@@ -272,6 +273,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			if (hdr_ip->protocol == 0x11 // UDP
 				&& hdr_udp->source == htons(53)) // DNS
 			{
+				w2e_dbg_printf("DNS processing IN id_client=%d (plain sport=0x%04X)\n", id_client, ntohs(hdr_udp->source));
+
 				/** Substitute client's DNS server back */
 				hdr_ip->saddr = w2e_ctx.client_ctx[id_client].ip_dns_last;
 				//hdr_ip->saddr = htonl(w2e_client_ctxt.last_dns_addr);
