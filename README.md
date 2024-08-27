@@ -26,32 +26,41 @@ If none provided, program will try to use `default.config`.
 apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-queue1 iptables #tcpdump
 ```
 
+### Scheme
+
+[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme_server.svg)
+
+
 ### Configuration file
 
-#### Section **[server]**
+<details>
+	<summary>Server config...</summary>
 
-##### dns= *{none, ip}*
+	#### Section **[server]**
+	
+	##### dns= *{none, ip}*
+	
+	> Open DNS server address to substitute in DNS queries (may be empty = don't change)
+	
+	##### ip= *ip*
+	
+	> Server's IP address
+	
+	#### Section **[client]**
+	
+	> May be multiple sections. Describes clients.
+	
+	##### id= *number in range [0, 255]*
+	
+	> Client's ID in range [0-255].
+	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
+	> Value must be unique in configuration file.
+	
+	##### key= *string of key length*
+	
+	> Client's AES key.
 
-> Open DNS server address to substitute in DNS queries (may be empty = don't change)
-
-##### ip= *ip*
-
-> Server's IP address
-
-#### Section **[client]**
-
-> May be multiple sections. Describes clients.
-
-##### id= *number in range [0, 255]*
-
-> Client's ID in range [0-255].
-> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
-> Value must be unique in configuration file.
-
-##### key= *string of key length*
-
-> Client's AES key.
-
+</details>
 
 ## Client
 
@@ -61,31 +70,35 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 ### Configuration file
 
-#### Section **[server]**
+<details>
+	<summary>Server config...</summary>
 
-##### ip= *ip*
-
-> Server's IP address.
-
-#### Section **[client]**
-
-> May be multiple sections. Describes clients.
-
-##### id= *number in range [0, 255]*
-
-> Client's ID in range [0-255].
-> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
-> Value must be unique in configuration file.
-
-##### ip= *{none, ip}*
-
-> IP address to use as Source address of encapsulated packets.
-> If set empty -- will be used the same Source IP from plain packets.
-
-##### key= *string of key length*
-
-> Client's AES key.
-
+	#### Section **[server]**
+	
+	##### ip= *ip*
+	
+	> Server's IP address.
+	
+	#### Section **[client]**
+	
+	> May be multiple sections. Describes clients.
+	
+	##### id= *number in range [0, 255]*
+	
+	> Client's ID in range [0-255].
+	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
+	> Value must be unique in configuration file.
+	
+	##### ip= *{none, ip}*
+	
+	> IP address to use as Source address of encapsulated packets.
+	> If set empty -- will be used the same Source IP from plain packets.
+	
+	##### key= *string of key length*
+	
+	> Client's AES key.
+	
+</details>
 
 ## Related repos
 
@@ -100,6 +113,12 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 [Linux](https://github.com/torvalds/linux)
 
 ## Notes
+
+- You can stop `WinDivert` service on client using
+
+```
+sc stop WinDivert
+```
 
 - If your build fails with
 
