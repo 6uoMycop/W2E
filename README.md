@@ -30,6 +30,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 <details>
 	<summary>Server scheme...</summary>
+
 	[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme_server.svg)
 </details>
 
