@@ -62,24 +62,36 @@
 /**
  * Debug log.
  */
+
 #ifndef W2E_DEBUG
- /** Debug printf macro NOP */
-#define w2e_dbg_printf(...) do {} while (0);
- /** Debug buffer hex dump macro NOP */
-#define w2e_dbg_dump(len, buf) do {} while (0);
+
+	/** Debug printf macro NOP */
+	#define w2e_dbg_printf(...) do {} while (0);
+	/** Debug buffer hex dump macro NOP */
+	#define w2e_dbg_dump(len, buf) do {} while (0);
+
 #else // W2E_DEBUG
-/** Enable verbose logging anyway */
-#ifndef W2E_VERBOSE
-#define W2E_VERBOSE
-#endif // !W2E_VERBOSE
-/** Define debug printf macro */
-#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
- /** Debug buffer hex dump macro */
-#define w2e_dbg_dump(len, buf) \
-do { \
-	for (int __i = 0; __i < len; __i++) printf("%02X ", (unsigned char)(buf[__i])); \
-	printf("\n"); \
-} while (0);
+
+	/** Enable verbose logging anyway */
+	#ifndef W2E_VERBOSE
+		#define W2E_VERBOSE
+	#endif // !W2E_VERBOSE
+
+	/** Define debug printf macro */
+	#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+
+	#ifndef W2E_DEBUG_NO_HEX
+	/** Debug buffer hex dump macro */
+		#define w2e_dbg_dump(len, buf) \
+		do { \
+			for (int __i = 0; __i < len; __i++) printf("%02X ", (unsigned char)(buf[__i])); \
+			printf("\n"); \
+		} while (0);
+	#else
+		/** Debug buffer hex dump macro NOP */
+		#define w2e_dbg_dump(len, buf) do {} while (0);
+	#endif // !W2E_DEBUG_NO_HEX
+
 #endif // W2E_DEBUG
 
 

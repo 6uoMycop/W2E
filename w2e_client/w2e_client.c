@@ -514,6 +514,12 @@ int main(int argc, char* argv[])
 	w_filter = g_filters[g_filter_num];
 	g_filter_num++;
 
+	if (!w_filter)
+	{
+		w2e_print_error("Filter init error\n");
+		return 1;
+	}
+
 	__w2c_client__main_loop(w_filter);
 
 
