@@ -287,6 +287,9 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			}
 		}
 
+		w2e_dbg_printf("len recv= %d\n", len_recv);
+		w2e_dbg_dump(len_recv, pkt);
+
 		/**
 		 * Encrypt payload.
 		 */
