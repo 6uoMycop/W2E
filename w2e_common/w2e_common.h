@@ -55,7 +55,7 @@
  /**
   * Higher byte of client's port (prefix).
   */
-#define W2E_CLIENT_PORT_HB 0xCC00
+#define W2E_CLIENT_PORT_HB (uint16_t)(0xCC00)
 #endif // !W2E_MAX_CLIENTS
 
 
