@@ -28,8 +28,10 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 ### Scheme
 
-[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme_server.svg)
-
+<details>
+	<summary>Server scheme...</summary>
+	[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme_server.svg)
+</details>
 
 ### Configuration file
 
@@ -71,7 +73,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 ### Configuration file
 
 <details>
-	<summary>Server config...</summary>
+	<summary>Client config...</summary>
 
 	#### Section **[server]**
 	
@@ -110,7 +112,7 @@ apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-que
 
 [xxHash](https://github.com/Cyan4973/xxHash)
 
-[Linux](https://github.com/torvalds/linux)
+[linux](https://github.com/torvalds/linux)
 
 ## Notes
 
