@@ -318,7 +318,7 @@ static inline w2e_ct_entry_t* __w2e_conntrack__create(const w2e_ct_tuple_t* tupl
 	entry = __w2e_conntrack__resolve(tuple);
 	if (entry)
 	{
-		w2e_log_printf("Entry already exists\n");
+		w2e_dbg_printf("Entry already exists\n");
 		return entry;
 	}
 
