@@ -174,10 +174,12 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 * Calculate client's id (lower port byte).
 		 */
 		id_client = ntohs(hdr_udp->source) & (uint16_t)(0x00FF);
+		w2e_dbg_printf("id_client=%d (0x%04X)\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00));
 		if (ntohs(hdr_udp->source) & (uint16_t)(0xFF00) != W2E_CLIENT_PORT_HB)
 		{
+			w2e_dbg_printf("id_client=%d (0x%04X)\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00));
 			w2e_print_error("Malformed packet! Client port is 0x%04X, must be 0x%02Xxx\n",
-				ntohs(hdr_udp->source), W2E_CLIENT_PORT_HB >> 2);
+				ntohs(hdr_udp->source), W2E_CLIENT_PORT_HB >> 8);
 			w2e_ctrs.err_rx++;
 		}
 
