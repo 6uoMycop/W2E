@@ -202,7 +202,6 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 * Mangle source address.
 		 */
 		hdr_dec_ip->saddr = w2e_ctx.ip_server;
-		//hdr_pre_ip->saddr = htonl(0x0a800002);
 
 		/**
 		 * Process DNS (if it is and set in config).
@@ -217,7 +216,6 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 				w2e_ctx.client_ctx[id_client].ip_dns_last = hdr_dec_ip->daddr;
 				/** Substitute ours DNS server */
 				hdr_dec_ip->daddr = w2e_ctx.ip_dns;
-				//hdr_dec_ip->daddr = htonl(W2E_DNS);
 			}
 		}
 
@@ -263,7 +261,12 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		{
 			goto send_original;
 		}
-		id_client = 0;
+		id_client = ct->id_client;
+
+		/**
+		 * Substitute client's plain IP back.
+		 */
+		hdr_ip->daddr = w2e_ctx.client_ctx[id_client].ip_client;
 
 		/**
 		 * Process DNS (if it is and set in config).
@@ -277,7 +280,6 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 
 				/** Substitute client's DNS server back */
 				hdr_ip->saddr = w2e_ctx.client_ctx[id_client].ip_dns_last;
-				//hdr_ip->saddr = htonl(w2e_client_ctxt.last_dns_addr);
 
 				/**
 				 * Recalculate CRCs (IPv4 and UDP).

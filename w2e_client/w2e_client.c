@@ -327,11 +327,10 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						 */
 						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
 
-						/**
-						 * Substitute local IP.
-						 */
-						hdr_pre_ip->DstAddr = htonl(0xc0a832f5); // My src address
-						//hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						///**
+						// * Substitute local IP.
+						// */
+						//hdr_pre_ip->DstAddr = w2e_cfg_client.ip_client; // My src address
 
 						/**
 						 * Recalculate CRCs (all).
