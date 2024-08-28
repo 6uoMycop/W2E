@@ -54,18 +54,13 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	}
 	else if (MATCH("client", "ip"))
 	{
-		tmp_len = strlen(value);
-		if (tmp_len == 0)
-		{
-			pconfig->ip_client = 0;
-		}
-		else if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
+		if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
 		{
 			w2e_print_error("INI: [client] ip: wrong IP %s\n", value);
 			return 0;
 		}
 
-		w2e_log_printf("\tINI: [client] ip: %s (Net order 0x%08X)\n", tmp_len ? value : "COPY SAME", pconfig->ip_server);
+		w2e_log_printf("\tINI: [client] ip: %s (Net order 0x%08X)\n", value, pconfig->ip_server);
 	}
 	else if (MATCH("server", "ip"))
 	{
@@ -279,7 +274,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 	static uint8_t			pkt[2][W2E_MAX_PACKET_SIZE] = { 0 };
 
 	PWINDIVERT_IPHDR		hdr_pre_ip		= (PWINDIVERT_IPHDR)	& (pkt[1][0]);  // Preamble IPv4 header
-	PWINDIVERT_UDPHDR		hdr_pre_udp		= (PWINDIVERT_UDPHDR)	& (pkt[1][20]); // Preamble UDP header
+	PWINDIVERT_UDPHDR		hdr_pre_udp		= (PWINDIVERT_UDPHDR)	& (pkt[1][20]); // Preamble UDP header //@TODO recalculate from IHL on every decap
 
 	w2e_log_printf("Client loop operating\n");
 
@@ -327,10 +322,20 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						 */
 						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
 
-						///**
-						// * Substitute local IP.
-						// */
-						//hdr_pre_ip->DstAddr = w2e_cfg_client.ip_client; // My src address
+						/**
+						 * Validate.
+						 */
+						if (!w2e_common__validate_dec(pkt[1]))
+						{
+							w2e_print_error("Validation: Malformed packet (possibly wrong key)! Drop\n");
+							w2e_ctrs.err_rx++;
+							continue;
+						}
+
+						/**
+						 * Substitute local IP.
+						 */
+						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_client; // My src address
 
 						/**
 						 * Recalculate CRCs (all).
@@ -382,7 +387,8 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						hdr_pre_ip->Length = htons((u_short)(len_send));
 
 						/** Configured in INI address or the same address from plain */
-						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client ? w2e_cfg_client.ip_client : hdr_ip->SrcAddr;
+						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client;
+						//hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client ? w2e_cfg_client.ip_client : hdr_ip->SrcAddr;
 						/** Remote w2e server address */
 						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_server;
 

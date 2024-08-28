@@ -102,10 +102,9 @@ cmake.exe --build ./build --config Release
 	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
 	> Value must be unique in configuration file.
 	
-	##### ip= *{none, ip}*
+	##### ip= *ip*
 	
 	> IP address to use as Source address of encapsulated packets.
-	> If set empty -- will be used the same Source IP from plain packets.
 	
 	##### key= *string of key length*
 	

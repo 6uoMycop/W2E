@@ -46,7 +46,7 @@ typedef struct {
 	uint16_t	port;				/** This client's UDP port (in network byte order) */
 	uint8_t		key[W2E_KEY_LEN];	/** AES key */
 	/** Runtime context */
-	uint32_t	ip_client;			/** Client's IP address (in network byte order) */
+	uint32_t	ip_client;			/** Server visible client's IP address (in network byte order) */
 	uint32_t	ip_dns_last;		/** Last client DNS address in network byte order */
 } w2e_cfg_client_ctx_t;
 

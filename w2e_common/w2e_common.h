@@ -180,6 +180,11 @@ static const uint8_t w2e_template_udph[] = {
 };
 
 
+/**
+ * Vaildate decapsulated packet.
+ * Check if packet starts from IPv4 header (4) length of 40 bytes (5).
+ */
+#define w2e_common__validate_dec(p) (p[0] == 0x45)
 
 
 #endif // __W2E_COMMON_H

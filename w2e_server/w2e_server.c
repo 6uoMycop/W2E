@@ -118,6 +118,9 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 }
 
 
+/**
+ * Packet processing point.
+ */
 static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
 	//u_int32_t id = print_pkt(nfa);
@@ -161,7 +164,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 
 	hdr_udp = &(pkt[hdr_ip->ihl * 4]);
 
-	w2e_dbg_printf("payload_len=%d, proto=0x%02X, (0x%04X)\n", len_recv, hdr_ip->protocol, ntohs(hdr_udp->dest));
+	//w2e_dbg_printf("payload_len=%d, proto=0x%02X, (0x%04X)\n", len_recv, hdr_ip->protocol, ntohs(hdr_udp->dest));
 
 	if (hdr_ip->protocol == 0x11 // UDP
 		&& ntohs(hdr_udp->dest) == W2E_UDP_SERVER_PORT_MARKER
@@ -178,9 +181,10 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		if (ntohs(hdr_udp->source) & (uint16_t)(0xFF00) != W2E_CLIENT_PORT_HB)
 		{
 			w2e_dbg_printf("id_client=%d (0x%04X)\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00));
-			w2e_print_error("Malformed packet! Client port is 0x%04X, must be 0x%02Xxx\n",
+			w2e_print_error("Malformed packet! Client port is 0x%04X, must be 0x%02Xxx. Drop\n",
 				ntohs(hdr_udp->source), W2E_CLIENT_PORT_HB >> 8);
 			w2e_ctrs.err_rx++;
+			goto drop;
 		}
 
 		/**
@@ -192,6 +196,17 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 * Decrypt payload.
 		 */
 		len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[W2E_PREAMBLE_SIZE]), pkt1, len_recv - W2E_PREAMBLE_SIZE);
+
+		/**
+		 * Validate.
+		 */
+		if (!w2e_common__validate_dec(pkt1))
+		{
+			w2e_print_error("Validation: Malformed packet (possibly wrong key)! Drop. Client port is 0x%04X\n",
+							ntohs(hdr_udp->source));
+			w2e_ctrs.err_rx++;
+			goto drop;
+		}
 
 		/**
 		 * Get decrypted packet's transport header address.
@@ -251,7 +266,6 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	else /* Encapsulation needed */
 	{
 		w2e_ctrs.encap++;
-		w2e_dbg_printf("Encap\n");
 
 		/**
 		 * Get client's id from conntrack entry.
@@ -263,10 +277,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		}
 		id_client = ct->id_client;
 
-		/**
-		 * Substitute client's plain IP back.
-		 */
-		hdr_ip->daddr = w2e_ctx.client_ctx[id_client].ip_client;
+		w2e_dbg_printf("Encap\n");
 
 		/**
 		 * Process DNS (if it is and set in config).
@@ -302,16 +313,14 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			len_recv,
 			W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
 
-
 		/**
 		 * Add incapsulation header.
 		 */
 
-		 /** IPv4 header */
+		/** IPv4 header */
 		memcpy(pkt1, w2e_template_iph, sizeof(w2e_template_iph));
 		/** UDP header */
 		memset(&(pkt1[sizeof(w2e_template_iph)]), 0, sizeof(w2e_template_udph));
-		//memcpy(&(pkt1[sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
 
 
 		/**
@@ -319,11 +328,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 */
 		/** Client's port */
 		hdr_pre_udp->dest = htons(W2E_CLIENT_PORT_HB | id_client);
-		//hdr_pre_udp->dest = htons(0x8880);
-
 		/** Server's port */
 		hdr_pre_udp->source = htons(W2E_UDP_SERVER_PORT_MARKER);
-
 		/** Datagram length */
 		hdr_pre_udp->len = htons(len_send + sizeof(w2e_template_udph));
 
@@ -331,28 +337,26 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		len_send += W2E_PREAMBLE_SIZE;
 
 
-		/** New IPv4 header */
+		/**
+		 * New IPv4 header.
+		 */
+		/** Total packet length */
 		hdr_pre_ip->tot_len = htons((u_short)(len_send));
 		/** Server src address */
 		hdr_pre_ip->saddr = w2e_ctx.ip_server;
 		/** Remote w2e client address */
 		hdr_pre_ip->daddr = w2e_ctx.client_ctx[id_client].ip_client;
-		//hdr_pre_ip->saddr = htonl(/*0x0A00A084*/ 0x0a800002); // My src address
-		//hdr_pre_ip->daddr = htonl(0xb2da7529); // Remote w2e server address // @TODO Substitute real address
-		//hdr_pre_ip->SrcAddr = ppIpHdr->SrcAddr; // Same src address
-		//hdr_pre_ip->DstAddr = htonl(0xc0000001); // Remote w2e server address // @TODO Substitute real address
 
 
-		/** For send to socket -- destination address */
+		/**
+		 * For send to socket -- destination address.
+		 */
 		sin.sin_addr.s_addr = ntohl(w2e_ctx.client_ctx[id_client].ip_client);
-		//sin.sin_addr.s_addr = htonl(w2e_client_ctxt.addr);
 
 
 		/**
 		 * Recalculate CRCs (IPv4 and UDP).
 		 */
-		//hdr_pre_icmp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
-		//hdr_pre_udp->checksum = htons(calculate_checksum_icmp((unsigned char*)&hdr_pre_icmp, sizeof(hdr_pre_icmp)));
 		nfq_udp_compute_checksum_ipv4(hdr_pre_udp, hdr_pre_ip);
 		nfq_ip_set_checksum(hdr_pre_ip);
 
@@ -361,17 +365,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	}
 
 
-
 	/**
-	 * Send original packet.
-	 */
- send_original:
-	w2e_ctrs.total_tx++;
-	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
-
-
-	/**
-	 * Send modified packet.
+	 * Send modified packet (then drop original).
 	 */
 send_modified:
 	w2e_ctrs.total_tx++;
@@ -385,11 +380,18 @@ send_modified:
 		exit(EXIT_FAILURE);
 	}
 
-
 	/**
 	 * Drop original packet.
 	 */
+drop:
 	return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+
+	/**
+	 * Send original packet.
+	 */
+send_original:
+	w2e_ctrs.total_tx++;
+	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
 static void w2e_server_deinit()
