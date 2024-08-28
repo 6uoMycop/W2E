@@ -174,7 +174,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 * Calculate client's id (lower port byte).
 		 */
 		id_client = ntohs(hdr_udp->source) & (uint16_t)(0x00FF);
-		w2e_dbg_printf("id_client=%d (0x%04X)\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00));
+		w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00), hdr_ip->saddr);
 		if (ntohs(hdr_udp->source) & (uint16_t)(0xFF00) != W2E_CLIENT_PORT_HB)
 		{
 			w2e_dbg_printf("id_client=%d (0x%04X)\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00));
@@ -276,7 +276,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			if (hdr_ip->protocol == 0x11 // UDP
 				&& hdr_udp->source == htons(53)) // DNS
 			{
-				w2e_dbg_printf("DNS processing IN id_client=%d (plain sport=0x%04X)\n", id_client, ntohs(hdr_udp->source));
+				w2e_dbg_printf("DNS processing IN id_client=%d (plain sport=0x%04X) 0x%08X\n",
+								id_client, ntohs(hdr_udp->source), w2e_ctx.client_ctx[id_client].ip_client);
 
 				/** Substitute client's DNS server back */
 				hdr_ip->saddr = w2e_ctx.client_ctx[id_client].ip_dns_last;
