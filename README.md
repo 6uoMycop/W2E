@@ -1,5 +1,7 @@
 # W2E
 
+![Logo](./misc/w2e_client_logo.png)
+
 **Window to Europe** — secured tunneling solution.
 
 ## Scheme
@@ -69,8 +71,6 @@ cmake --build build
 </details>
 
 ## Client
-
-![Logo](./misc/w2e_client_logo.png)
 
 **OS:** `Windows`
 
