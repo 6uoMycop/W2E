@@ -195,7 +195,11 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/**
 		 * Decrypt payload.
 		 */
-		len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[W2E_PREAMBLE_SIZE]), pkt1, len_recv - W2E_PREAMBLE_SIZE);
+		len_send = w2e_crypto__dec_pkt_ipv4(
+			&(pkt[W2E_PREAMBLE_SIZE]),
+			pkt1,
+			len_recv - W2E_PREAMBLE_SIZE,
+			&(w2e_ctx.client_ctx[id_client].handle));
 
 		/**
 		 * Validate.
@@ -307,11 +311,12 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/**
 		 * Encrypt payload.
 		 */
-		len_send = w2e_crypto_enc(
+		len_send = w2e_crypto__enc(
 			pkt,
 			&(pkt1[W2E_PREAMBLE_SIZE]),
 			len_recv,
-			W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
+			W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE,
+			&(w2e_ctx.client_ctx[id_client].handle));
 
 		/**
 		 * Add incapsulation header.

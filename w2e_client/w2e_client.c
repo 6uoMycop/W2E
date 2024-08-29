@@ -16,6 +16,9 @@
 static HANDLE g_filters[W2E_MAX_FILTERS];
 static int g_filter_num = 0;
 
+/** Crypto lib handle */
+w2e_crypto__handle_t crypto_handle = { 0 };
+
 static volatile uint8_t client_stop = 0;
 
 /**
@@ -204,6 +207,7 @@ static void __w2c_client__sigint_handler(int sig)
 	
 	client_stop = 1;
 	__w2e_client__deinit_all(g_filters, g_filter_num);
+	w2e_crypto__deinit(&crypto_handle);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
@@ -320,7 +324,11 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/**
 						 * Decrypt payload.
 						 */
-						len_send = w2e_crypto__dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
+						len_send = w2e_crypto__dec_pkt_ipv4(
+							&(pkt[0][W2E_PREAMBLE_SIZE]),
+							pkt[1],
+							len_recv - W2E_PREAMBLE_SIZE,
+							&crypto_handle);
 
 						/**
 						 * Validate.
@@ -364,7 +372,8 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 							pkt[0],
 							&(pkt[1][W2E_PREAMBLE_SIZE]),
 							len_recv,
-							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
+							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE,
+							&crypto_handle);
 
 						/**
 						 * Add incapsulation header.
@@ -487,7 +496,7 @@ int main(int argc, char* argv[])
 	/**
 	 * Crypto lib init.
 	 */
-	if (w2e_crypto__init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN) != 0)
+	if (w2e_crypto__init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN, &crypto_handle) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
 		return 1;
@@ -526,11 +535,6 @@ int main(int argc, char* argv[])
 
 	__w2c_client__main_loop(w_filter);
 
-
-	/**
-	 * Crypto lib deinit.
-	 */
-	w2e_crypto__deinit();
 
 	return 0;
 }
