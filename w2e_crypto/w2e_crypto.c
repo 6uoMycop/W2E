@@ -120,7 +120,7 @@ int w2e_crypto__dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total, const w2e
 	/**
 	 * Decrypt the rest of packet.
 	 */
-	w2e_crypto__dec(&(crypt[handle->key_len]), &(plain[handle->key_len]), sz_total - handle->key_len);
+	w2e_crypto__dec(&(crypt[handle->key_len]), &(plain[handle->key_len]), sz_total - handle->key_len, handle);
 
 
 	return sz_real;
