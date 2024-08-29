@@ -4,7 +4,7 @@
 
 ## Scheme
 
-[![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme.svg)
+[![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/master/misc/w2e_scheme.svg)
 
 
 ## Args
@@ -35,7 +35,7 @@ cmake --build build
 
 ### Scheme
 
-[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme_server.svg)
+[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/master/misc/w2e_scheme_server.svg)
 
 ### Configuration file
 
@@ -69,6 +69,8 @@ cmake --build build
 </details>
 
 ## Client
+
+![Logo](./misc/w2e_client_logo.png)
 
 **OS:** `Windows`
 
