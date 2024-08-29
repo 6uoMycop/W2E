@@ -186,6 +186,12 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			w2e_ctrs.err_rx++;
 			goto drop;
 		}
+		if (!w2e_ctx.client_ctx[id_client].is_configured) /** Client not configured - drop */
+		{
+			w2e_print_error("Malformed packet! Client port 0x%04X, not configured. Drop\n", ntohs(hdr_udp->source));
+			w2e_ctrs.err_rx++;
+			goto drop;
+		}
 
 		/**
 		 * Get client's IP.
@@ -435,7 +441,7 @@ static void w2e_server_deinit()
 		if (w2e_ctx.client_ctx[i].is_configured)
 		{
 			/** Denit crypto lib */
-			w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle)) != 0);
+			w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle));
 		}
 	}
 
