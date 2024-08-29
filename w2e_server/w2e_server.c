@@ -423,7 +423,16 @@ static void w2e_server_deinit()
 	/**
 	 * Crypto lib deinit.
 	 */
-	w2e_crypto_deinit();
+	/** For all clients */
+	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
+	{
+		/** If client is configured */
+		if (w2e_ctx.client_ctx[i].is_configured)
+		{
+			/** Denit crypto lib */
+			w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle)) != 0);
+		}
+	}
 
 	// Close socket descriptor.
 	close(sock_tx);
@@ -503,10 +512,22 @@ int main(int argc, char** argv)
 	 * Crypto lib init.
 	 */
 	w2e_log_printf("crypto lib init\n");
-	if (w2e_crypto_init((const u8*)"0000000000000000", W2E_KEY_LEN) != 0)
+	/** For all clients */
+	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
 	{
-		w2e_print_error("Crypto init error\n");
-		return 1;
+		/** If client is configured */
+		if (w2e_ctx.client_ctx[i].is_configured)
+		{
+			/** Init crypto lib with given in INI key */
+			if (w2e_crypto__init(
+				w2e_ctx.client_ctx[i].key,
+				W2E_KEY_LEN,
+				&(w2e_ctx.client_ctx[i].handle)) != 0)
+			{
+				w2e_print_error("Crypto init error\n");
+				return 1;
+			}
+		}
 	}
 
 	w2e_log_printf("opening library handle\n");

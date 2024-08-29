@@ -320,7 +320,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/**
 						 * Decrypt payload.
 						 */
-						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
+						len_send = w2e_crypto__dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
 
 						/**
 						 * Validate.
@@ -360,7 +360,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/**
 						 * Encrypt payload.
 						 */
-						len_send = w2e_crypto_enc(
+						len_send = w2e_crypto__enc(
 							pkt[0],
 							&(pkt[1][W2E_PREAMBLE_SIZE]),
 							len_recv,
@@ -487,7 +487,7 @@ int main(int argc, char* argv[])
 	/**
 	 * Crypto lib init.
 	 */
-	if (w2e_crypto_init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN) != 0)
+	if (w2e_crypto__init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
 		return 1;
@@ -504,11 +504,11 @@ int main(int argc, char* argv[])
 		" and ip"
 		//" and (tcp or udp)"
 		" and (" "udp.SrcPort == 5256"
-			//" or tcp.DstPort == 443"
+			" or tcp.DstPort == 443"
 			" or tcp.DstPort == 80"
 			/////////" ((tcp.DstPort == 443 or tcp.DstPort == 80) and ip.DstAddr != 35.226.111.211)"
-			//" or udp.DstPort == 53"
-			//" or udp.DstPort == 443" /* QUIC */
+			" or udp.DstPort == 53"
+			" or udp.DstPort == 443" /* QUIC */
 			//" or udp.DstPort == 1900" /* SSDP */
 			//" udp.DstPort == 53"
 		")"
@@ -530,7 +530,7 @@ int main(int argc, char* argv[])
 	/**
 	 * Crypto lib deinit.
 	 */
-	w2e_crypto_deinit();
+	w2e_crypto__deinit();
 
 	return 0;
 }

@@ -10,50 +10,41 @@
 #include "w2e_crypto.h"
 
 
-static void*	_ctx_enc = NULL;
-static void*	_ctx_dec = NULL;
-static int		key_len = 0; /** In bytes */
-
-
-int w2e_crypto_init(const u8* key, size_t len)
+int w2e_crypto__init(const u8* key, size_t len, w2e_crypto__handle_t* handle)
 {
 	w2e_log_printf("Crypto init...\n");
 
-	_ctx_enc = aes_encrypt_init(key, len);
-	if (!_ctx_enc)
+	handle->enc = aes_encrypt_init(key, len);
+	if (!handle->enc)
 	{
 		w2e_print_error("aes_encrypt_init error\n");
 		return -1;
 	}
 
-	_ctx_dec = aes_decrypt_init(key, len);
-	if (!_ctx_dec)
+	handle->dec = aes_decrypt_init(key, len);
+	if (!handle->dec)
 	{
 		w2e_print_error("aes_decrypt_init error\n");
-		aes_encrypt_deinit(_ctx_enc);
-		_ctx_enc = NULL;
+		aes_encrypt_deinit(handle->enc);
+		handle->enc = NULL;
 		return -1;
 	}
 
-	key_len = (int)len;
-
-	w2e_log_printf("Crypto init OK\n");
+	handle->key_len = (int)len;
 
 	return 0;
 }
 
 
-void w2e_crypto_deinit()
+void w2e_crypto__deinit(w2e_crypto__handle_t* handle)
 {
 	w2e_log_printf("Crypto deinit...\n");
 
-	aes_encrypt_deinit(_ctx_enc);
-	aes_encrypt_deinit(_ctx_dec);
-	_ctx_enc = NULL;
-	_ctx_dec = NULL;
-	key_len = 0;
-
-	w2e_log_printf("Crypto deinit OK\n");
+	aes_encrypt_deinit(handle->enc);
+	aes_encrypt_deinit(handle->dec);
+	handle->enc = NULL;
+	handle->dec = NULL;
+	handle->key_len = 0;
 }
 
 
@@ -63,10 +54,10 @@ void w2e_crypto_deinit()
  * Add 0 padding at the end of plaintext (if sz_max affords to).
  * Returns size of resulting array in bytes.
  */
-int w2e_crypto_enc(u8* plain, u8* crypt, int sz_fact, int sz_max)
+int w2e_crypto__enc(u8* plain, u8* crypt, int sz_fact, int sz_max, const w2e_crypto__handle_t* handle)
 {
-	int rem = sz_fact % key_len;
-	int blks = sz_fact / key_len;
+	int rem = sz_fact % handle->key_len;
+	int blks = sz_fact / handle->key_len;
 
 	if (rem && (sz_max - sz_fact - rem >= 0))
 	{
@@ -80,10 +71,10 @@ int w2e_crypto_enc(u8* plain, u8* crypt, int sz_fact, int sz_max)
 
 	for (int i = 0; i < blks; i++)
 	{
-		aes_encrypt(_ctx_enc, &(plain[i * key_len]), &(crypt[i * key_len]));
+		aes_encrypt(handle->enc, &(plain[i * handle->key_len]), &(crypt[i * handle->key_len]));
 	}
 
-	return blks * key_len + rem;
+	return blks * handle->key_len + rem;
 }
 
 
@@ -91,16 +82,16 @@ int w2e_crypto_enc(u8* plain, u8* crypt, int sz_fact, int sz_max)
  * Decrypt buffer of given size sz_fact.
  * Be careful -- may contain padding
  */
-void w2e_crypto_dec(const u8* crypt, u8* plain, int sz_fact)
+void w2e_crypto__dec(const u8* crypt, u8* plain, int sz_fact, const w2e_crypto__handle_t* handle)
 {
-	if (sz_fact % key_len)
+	if (sz_fact % handle->key_len)
 	{
 		w2e_print_error("Buffer of wrong size (%d)\n", sz_fact);
 	}
 
-	for (int i = 0; i < sz_fact / key_len; i++)
+	for (int i = 0; i < sz_fact / handle->key_len; i++)
 	{
-		aes_decrypt(_ctx_dec, &(crypt[i * key_len]), &(plain[i * key_len]));
+		aes_decrypt(handle->dec, &(crypt[i * handle->key_len]), &(plain[i * handle->key_len]));
 	}
 }
 
@@ -110,14 +101,14 @@ void w2e_crypto_dec(const u8* crypt, u8* plain, int sz_fact)
  * I.e. obtain actual packet size from IPv4 header's total length.
  * Returns real packet's length (without padding).
  */
-int w2e_crypto_dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total)
+int w2e_crypto__dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total, const w2e_crypto__handle_t* handle)
 {
 	int sz_real = 0;
 
 	/**
 	 * Decrypt first block. First 20 bytes are always valid
 	 */
-	aes_decrypt(_ctx_dec, crypt, plain);
+	aes_decrypt(handle->dec, crypt, plain);
 
 	/**
 	 * Obtain IPv4 packet length field value.
@@ -129,7 +120,7 @@ int w2e_crypto_dec_pkt_ipv4(const u8* crypt, u8* plain, int sz_total)
 	/**
 	 * Decrypt the rest of packet.
 	 */
-	w2e_crypto_dec(&(crypt[key_len]), &(plain[key_len]), sz_total - key_len);
+	w2e_crypto__dec(&(crypt[handle->key_len]), &(plain[handle->key_len]), sz_total - handle->key_len);
 
 
 	return sz_real;
