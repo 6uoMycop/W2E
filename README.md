@@ -42,31 +42,31 @@ cmake --build build
 ### Configuration file
 
 <details>
-	<summary>Server config...</summary>
+<summary>Server config...</summary>
 
-	#### Section **[server]**
-	
-	##### dns= *{none, ip}*
-	
-	> Open DNS server address to substitute in DNS queries (may be empty = don't change)
-	
-	##### ip= *ip*
-	
-	> Server's IP address
-	
-	#### Section **[client]**
-	
-	> May be multiple sections. Describes clients.
-	
-	##### id= *number in range [0, 255]*
-	
-	> Client's ID in range [0-255].
-	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
-	> Value must be unique in configuration file.
-	
-	##### key= *string of key length*
-	
-	> Client's AES key.
+#### Section **[server]**
+
+##### dns= *{none, ip}*
+
+> Open DNS server address to substitute in DNS queries (may be empty = don't change)
+
+##### ip= *ip*
+
+> Server's IP address
+
+#### Section **[client]**
+
+> May be multiple sections. Describes clients.
+
+##### id= *number in range [0, 255]*
+
+> Client's ID in range [0-255].
+> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
+> Value must be unique in configuration file.
+
+##### key= *string of key length*
+
+> Client's AES key.
 
 </details>
 
@@ -86,32 +86,32 @@ cmake.exe --build ./build --config Release
 ### Configuration file
 
 <details>
-	<summary>Client config...</summary>
+<summary>Client config...</summary>
 
-	#### Section **[server]**
-	
-	##### ip= *ip*
-	
-	> Server's IP address.
-	
-	#### Section **[client]**
-	
-	> May be multiple sections. Describes clients.
-	
-	##### id= *number in range [0, 255]*
-	
-	> Client's ID in range [0-255].
-	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
-	> Value must be unique in configuration file.
-	
-	##### ip= *ip*
-	
-	> IP address to use as Source address of encapsulated packets.
-	
-	##### key= *string of key length*
-	
-	> Client's AES key.
-	
+#### Section **[server]**
+
+##### ip= *ip*
+
+> Server's IP address.
+
+#### Section **[client]**
+
+> May be multiple sections. Describes clients.
+
+##### id= *number in range [0, 255]*
+
+> Client's ID in range [0-255].
+> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
+> Value must be unique in configuration file.
+
+##### ip= *ip*
+
+> IP address to use as Source address of encapsulated packets.
+
+##### key= *string of key length*
+
+> Client's AES key.
+
 </details>
 
 ## Related repos
