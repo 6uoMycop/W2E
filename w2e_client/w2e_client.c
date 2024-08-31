@@ -289,7 +289,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 		 */
 		if (WinDivertRecv(w_filter, pkt[0], sizeof(pkt[0]), &len_recv, &addr))
 		{
-			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
+			//w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 			w2e_ctrs.total_rx++; /* RX succeeded */
 
 			hdr_ip			= (PWINDIVERT_IPHDR)NULL;
@@ -319,6 +319,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 				{
 					if (hdr_udp && data && !addr.Outbound && hdr_udp->SrcPort == htons(W2E_UDP_SERVER_PORT_MARKER)) /* Inbound UDP with marker */
 					{ /* Decapsulation needed */
+						w2e_dbg_printf("DEcap Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv); w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.decap++;
 
 						/**
@@ -361,6 +362,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 					}
 					else if (addr.Outbound) /* Any outbound traffic */
 					{ /* Encapsulation needed */
+						w2e_dbg_printf("ENCAP Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.encap++;
 
 						w2e_dbg_dump(len_recv, pkt[0]);

@@ -153,10 +153,45 @@ iptables -t raw -A PREROUTING -p udp --dport 5256 -i ens4 -j NFQUEUE --queue-num
 iptables -t raw -A PREROUTING -p udp --sport 53 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 ```
 
-- Enlarge MTU
+- Enlarge MTU (linux server)
 
 ```
 ip l s dev ens4 mtu 1500
 ```
+
+- Turn offloads off (linux server)
+
+```
+ethtool -K ens4 tx off sg off tso off gro off rx-gro-hw off
+```
+
+- Disable IPv6 (linux server)
+
+```
+sysctl -w net.ipv6.conf.all.disable_ipv6=1
+sysctl -w net.ipv6.conf.default.disable_ipv6=1
+```
+
+- Decrease MTU (Windows client)
+
+```
+netsh interface ipv4 show subinterfaces
+```
+
+>    MTU  Состояние определения носителя   Вх. байт  Исх. байт  Интерфейс
+> ------  ---------------  ---------  ---------  -------------
+> 4294967295                1          0     467389  Loopback Pseudo-Interface 1
+>   1500                1  30151331950  479444648  Беспроводная сеть
+>   1500                5          0          0  Подключение по локальной сети* 1
+>   1500                1          0     363096  Ethernet 2
+>   1500                5          0          0  Подключение по локальной сети* 2
+
+```
+netsh interface ipv4 set subinterface <INTERFACE_NAME> mtu=1440 store=active
+```
+
+> store        - одно из следующих значений:
+>               active: настройка действует только до следующей перезагрузки.
+>           persistent: постоянная настройка.
 
 
