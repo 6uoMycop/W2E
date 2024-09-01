@@ -378,7 +378,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 							continue;
 						}
 
-						if ()
+						/** TODO check SYN in incoming, i.e. remote server establishes connection */
 
 						/**
 						 * Substitute local IP.

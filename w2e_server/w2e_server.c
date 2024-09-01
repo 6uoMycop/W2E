@@ -387,7 +387,7 @@ send_modified:
 	if (sendto(sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
 	{
 		w2e_ctrs.err_tx++;
-		w2e_print_error("Sendto failed! Length %d. Drop. Client port is 0x%04X\n", ntohs(hdr_udp->source), len_send);
+		w2e_print_error("Sendto failed! Length %d. Drop. Client port is 0x%04X\n", len_send, ntohs(hdr_udp->source));
 		perror("sendto() failed ");
 		w2e_dbg_dump(len_send, pkt1);
 	}
