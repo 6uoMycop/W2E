@@ -58,6 +58,12 @@
 #define W2E_CLIENT_PORT_HB (uint16_t)(0xCC00)
 #endif // !W2E_MAX_CLIENTS
 
+#ifndef W2E_TCP_MSS
+  /**
+   * TCP MSS size.
+   */
+#define W2E_TCP_MSS (uint16_t)(1340)
+#endif // !W2E_TCP_MSS
 
 /**
  * Debug log.
@@ -78,7 +84,7 @@
 	#endif // !W2E_VERBOSE
 
 	/** Define debug printf macro */
-	#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+	#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
 
 	#ifndef W2E_DEBUG_NO_HEX
 	/** Debug buffer hex dump macro */
@@ -103,14 +109,14 @@
 #define w2e_log_printf(...) do {} while (0);
 #else
 /** Define verbose printf macro */
-#define w2e_log_printf(fmt, ...) printf("[LOG] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+#define w2e_log_printf(fmt, ...) printf("[LOG] %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
 #endif // !W2E_VERBOSE
 
 
 /**
  * Define error printf macro.
  */
-#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
 
 
 /**
@@ -164,8 +170,7 @@ void* shmm_create(size_t size)
 // |                    <IP dst>                   |
 static const uint8_t w2e_template_iph[] = {
 	0x45, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, //
-//	0x00, 0x00, 0x40, 0x00, //
+	0x00, 0x00, 0x40, 0x00,
 	0xFF, 0x11, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00

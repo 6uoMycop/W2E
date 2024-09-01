@@ -257,6 +257,42 @@ static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT pack
 
 
 /**
+ * Mangle MSS in TCP segment. Returns 0 on success.
+ */
+static int __w2c_client__tcp_set_mss(PWINDIVERT_TCPHDR hdr_tcp, uint16_t value)
+{
+	uint8_t* p = (uint8_t*)hdr_tcp + 20; /** Options start here */
+	uint8_t* end = (uint8_t*)hdr_tcp + hdr_tcp->HdrLength * 4; /** Options end here */
+	uint8_t size, kind;
+
+	while (p < end)
+	{
+		kind = *p++;
+		if (kind == 0) /** End of the Options List */
+		{
+			w2e_log_printf("MSS: End of the Options List\n");
+			return 1;
+		}
+		if (kind == 1) /** NOP */
+		{
+			continue;
+		}
+		size = *p++;
+		if (kind == 2) /** MSS */
+		{
+			w2e_dbg_printf("MSS: Changing MSS from %d to %d\n", ntohs(*(uint16_t*)p), value);
+			*(uint16_t*)p = htons(value);
+			return 0;
+		}
+		p += (size - 2);
+	}
+
+	w2e_log_printf("MSS: Not found MSS\n");
+	return 1;
+}
+
+
+/**
  * Client's main packet processing loop.
  */
 static void __w2c_client__main_loop(HANDLE w_filter)
@@ -271,6 +307,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 
 	PWINDIVERT_IPHDR		hdr_ip;
 	PWINDIVERT_UDPHDR		hdr_udp;
+	PWINDIVERT_TCPHDR		hdr_tcp;
 
 	PVOID					data;
 	UINT					len_data;
@@ -306,7 +343,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 				&proto,
 				NULL, //&hdr_icmp,
 				NULL, //&hdr_icmpv6,
-				NULL, //&hdr_tcp,
+				&hdr_tcp,
 				&hdr_udp,
 				&data,
 				&len_data,
@@ -367,6 +404,24 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 
 						w2e_dbg_dump(len_recv, pkt[0]);
 						
+
+						/**
+						 * TCP MSS set to prevent fragmentation.
+						 */
+						if (hdr_tcp
+							&& hdr_tcp->Syn && !hdr_tcp->Ack /** SYN */
+							&& hdr_tcp->HdrLength > 5 /** > 20 bytes, i.e. options present */
+						)
+						{
+							if (__w2c_client__tcp_set_mss(hdr_tcp, W2E_TCP_MSS) != 0)
+							{
+								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_ctrs.err_rx++;
+								continue;
+							}
+						}
+
+
 						/**
 						 * Encrypt payload.
 						 */
