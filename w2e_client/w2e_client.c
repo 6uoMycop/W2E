@@ -379,10 +379,20 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 							continue;
 						}
 
-						/** TODO check SYN in incoming, i.e. remote server establishes connection */
-						if ((pkt[1][9] == 0x06) && (*(((uint8_t*)(hdr_pre_ip)) + 33) == 0x02))
+						/**
+						 * TCP MSS set (SACK packets) to prevent fragmentation.
+						 */
+						if ((hdr_pre_ip->Protocol == 0x06) /** TCP */
+							&& (*(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4 + 13) == 0x12)) /** If SACK packet */
 						{
-							w2e_print_error("WARN: SYN in incoming packet\n");
+							if (__w2c_client__tcp_set_mss(
+								(PWINDIVERT_TCPHDR)(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4),
+								W2E_TCP_MSS) != 0)
+							{
+								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_ctrs.err_rx++;
+								continue;
+							}
 						}
 
 						/**
@@ -410,42 +420,18 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						w2e_ctrs.encap++;
 
 						w2e_dbg_dump(len_recv, pkt[0]);
-						
 
-						if (hdr_tcp)
+						/**
+						 * TCP MSS set (SYN packets) to prevent fragmentation.
+						 */
+						if (hdr_tcp /** TCP */
+							&& hdr_tcp->Syn && !hdr_tcp->Ack) /** If SYN packet */
 						{
-							/**
-							 * TCP MSS set to prevent fragmentation.
-							 */
-							if (hdr_tcp->Syn && !hdr_tcp->Ack /** SYN */
-								&& hdr_tcp->HdrLength > 5 /** > 20 bytes, i.e. options present */
-								)
+							if (__w2c_client__tcp_set_mss(hdr_tcp, W2E_TCP_MSS) != 0)
 							{
-								if (__w2c_client__tcp_set_mss(hdr_tcp, W2E_TCP_MSS) != 0)
-								{
-									w2e_print_error("Unable to set MSS! Drop\n");
-									w2e_ctrs.err_rx++;
-									continue;
-								}
-							}
-							/**
-							 * Packet too long & it's not SYN -- reset connection.
-							 */
-							else if (len_data > W2E_TCP_MSS)
-							{
-								w2e_print_error("Too long packet encapsulating ( %s%s%s). Send RST\n",
-									hdr_ip ? "IP " : "",
-									hdr_udp ? "UDP " : "",
-									hdr_tcp ? "TCP " : ""
-								);
-								w2e_dbg_dump(len_recv, pkt[0]);
-
-								*(((uint8_t*)(hdr_tcp)) + 13) = 0x04;
-								//hdr_tcp->Rst = 1;
-
-								hdr_ip->Length = hdr_ip->HdrLength * 4 + 20;
-								len_recv = hdr_ip->Length;
-								hdr_tcp->HdrLength = 5;
+								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_ctrs.err_rx++;
+								continue;
 							}
 						}
 
