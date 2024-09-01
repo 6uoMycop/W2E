@@ -380,15 +380,20 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	 * Send modified packet (then drop original).
 	 */
 send_modified:
-	w2e_ctrs.total_tx++;
 	w2e_dbg_printf("len= %d\n", len_send);
 	w2e_dbg_dump(len_send, pkt1);
 
 
 	if (sendto(sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
 	{
+		w2e_ctrs.err_tx++;
+		w2e_print_error("Sendto failed! Length %d. Drop. Client port is 0x%04X\n", ntohs(hdr_udp->source), len_send);
 		perror("sendto() failed ");
-		exit(EXIT_FAILURE);
+		w2e_dbg_dump(len_send, pkt1);
+	}
+	else
+	{
+		w2e_ctrs.total_tx++;
 	}
 
 	/**

@@ -109,7 +109,7 @@
 #define w2e_log_printf(...) do {} while (0);
 #else
 /** Define verbose printf macro */
-#define w2e_log_printf(fmt, ...) printf("[LOG] %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
+#define w2e_log_printf(fmt, ...) printf("[LOG]   %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
 #endif // !W2E_VERBOSE
 
 

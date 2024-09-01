@@ -378,6 +378,8 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 							continue;
 						}
 
+						if ()
+
 						/**
 						 * Substitute local IP.
 						 */
