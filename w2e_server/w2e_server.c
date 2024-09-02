@@ -429,12 +429,6 @@ static void __w2e_server__deinit()
 	 */
 	server_stop = 1;
 
-	for (int i = 0; i < 3; i++)
-	{
-		w2e_log_printf("Wait %d...\n", i);
-		sleep(1);
-	}
-
 	/**
 	 * Conntrack deinit.
 	 */
