@@ -541,6 +541,12 @@ int main(int argc, char* argv[])
 	const char ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char* ini_fname = ini_default;
 
+
+	/**
+	 * Print art.
+	 */
+	printf("Version %s\n%s%s%s\n\n", W2E_VERSION, w2e_art__link_0, w2e_art__logo_large_0, w2e_art__name_large_0);
+
 	w2e_log_printf("Client is starting...\n");
 
 	/**

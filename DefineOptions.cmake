@@ -1,3 +1,5 @@
+add_compile_definitions(W2E_VERSION="${CMAKE_PROJECT_VERSION}")
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_compile_definitions(W2E_DEBUG)
 endif()
