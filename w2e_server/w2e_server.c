@@ -250,7 +250,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		}
 		else if (hdr_dec_ip->protocol == 0x06) /** TCP */
 		{
-			nfq_tcp_compute_checksum_ipv4(hdr_dec_udp, hdr_dec_ip);
+			nfq_tcp_compute_checksum_ipv4((struct tcphdr*)hdr_dec_udp, hdr_dec_ip);
 		}
 		else
 		{
