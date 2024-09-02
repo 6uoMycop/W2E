@@ -257,7 +257,7 @@ static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT pack
 
 
 /**
- * Mangle MSS in TCP segment. Returns 0 on success.
+ * Mangle MSS in TCP segment (if present MSS is larger than given value). Returns 0 on success.
  */
 static inline int __w2c_client__tcp_set_mss(PWINDIVERT_TCPHDR hdr_tcp, uint16_t value)
 {
@@ -270,8 +270,7 @@ static inline int __w2c_client__tcp_set_mss(PWINDIVERT_TCPHDR hdr_tcp, uint16_t 
 		kind = *p++;
 		if (kind == 0) /** End of the Options List */
 		{
-			w2e_log_printf("MSS: End of the Options List\n");
-			return 1;
+			break;
 		}
 		if (kind == 1) /** NOP */
 		{
@@ -280,8 +279,11 @@ static inline int __w2c_client__tcp_set_mss(PWINDIVERT_TCPHDR hdr_tcp, uint16_t 
 		size = *p++;
 		if (kind == 2) /** MSS */
 		{
-			w2e_dbg_printf("MSS: Changing MSS from %d to %d\n", ntohs(*(uint16_t*)p), value);
-			*(uint16_t*)p = htons(value);
+			if (ntohs(*(uint16_t*)p) > value) /** Set if present MSS is larger */
+			{
+				w2e_dbg_printf("MSS: Changing MSS from %d to %d\n", ntohs(*(uint16_t*)p), value);
+				*(uint16_t*)p = htons(value);
+			}
 			return 0;
 		}
 		p += (size - 2);
@@ -326,7 +328,6 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 		 */
 		if (WinDivertRecv(w_filter, pkt[0], sizeof(pkt[0]), &len_recv, &addr))
 		{
-			//w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 			w2e_ctrs.total_rx++; /* RX succeeded */
 
 			hdr_ip			= (PWINDIVERT_IPHDR)NULL;
@@ -355,9 +356,12 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 
 				if (hdr_ip)
 				{
+					/**
+					 * Decapsulation needed.
+					 */
 					if (hdr_udp && data && !addr.Outbound && hdr_udp->SrcPort == htons(W2E_UDP_SERVER_PORT_MARKER)) /* Inbound UDP with marker */
-					{ /* Decapsulation needed */
-						w2e_dbg_printf("DEcap Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv); w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
+					{
+						w2e_dbg_printf("DEcap Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.decap++;
 
 						/**
@@ -383,7 +387,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						 * TCP MSS set (SACK packets) to prevent fragmentation.
 						 */
 						if ((hdr_pre_ip->Protocol == 0x06) /** TCP */
-							&& (*(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4 + 13) == 0x12)) /** If SACK packet */
+							&& (*(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4 + 13) == 0x12)) /** SACK packet */
 						{
 							if (__w2c_client__tcp_set_mss(
 								(PWINDIVERT_TCPHDR)(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4),
@@ -398,7 +402,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/**
 						 * Substitute local IP.
 						 */
-						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_client; // My src address
+						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_client;
 
 						/**
 						 * Recalculate CRCs (all).
@@ -414,8 +418,11 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						__w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
+					/**
+					 * Encapsulation needed.
+					 */
 					else if (addr.Outbound) /* Any outbound traffic */
-					{ /* Encapsulation needed */
+					{
 						w2e_dbg_printf("ENCAP Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.encap++;
 
@@ -425,7 +432,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						 * TCP MSS set (SYN packets) to prevent fragmentation.
 						 */
 						if (hdr_tcp /** TCP */
-							&& hdr_tcp->Syn && !hdr_tcp->Ack) /** If SYN packet */
+							&& hdr_tcp->Syn && !hdr_tcp->Ack) /** SYN packet */
 						{
 							if (__w2c_client__tcp_set_mss(hdr_tcp, W2E_TCP_MSS) != 0)
 							{
@@ -452,7 +459,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/** IPv4 header */
 						memcpy(pkt[1], w2e_template_iph, sizeof(w2e_template_iph));
 						/** UDP header */
-						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
+						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph)); //@TODO memset 0
 
 						/** New UDP header */
 						hdr_pre_udp->SrcPort = w2e_cfg_client.port_client;
@@ -465,20 +472,18 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/** New IPv4 header */
 						hdr_pre_ip->Length = htons((u_short)(len_send));
 
-						/** Configured in INI address or the same address from plain */
+						/** Configured in INI address */
 						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client;
-						//hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client ? w2e_cfg_client.ip_client : hdr_ip->SrcAddr;
 						/** Remote w2e server address */
 						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_server;
-
-						//hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
-						//hdr_pre_ip->SrcAddr = htonl(0xc0a832f5); // My src address
 
 						/**
 						 * Recalculate CRCs (IPv4 and UDP).
 						 */
 						WinDivertHelperCalcChecksums(pkt[1], len_send, &addr,
-							(UINT64)(WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+							(UINT64)(WINDIVERT_HELPER_NO_TCP_CHECKSUM
+								| WINDIVERT_HELPER_NO_ICMP_CHECKSUM
+								| WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
 
 						/**
 						 * Send modified packet.

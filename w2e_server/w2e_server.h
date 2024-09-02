@@ -62,7 +62,7 @@ typedef struct {
 	uint32_t				ip_dns;
 
 	/**
-	 * INI configured // DNS server's IP address (in network byte order). If 0 -- don't substitute.
+	 * INI configured // Local server's IP address (in network byte order).
 	 */
 	uint32_t				ip_server;
 

@@ -16,7 +16,7 @@
 w2e_ctrs_t w2e_ctrs = { 0 };
 
 /**
- * TX socket.
+ * TX raw socket.
  */
 int sock_tx = -1;
 
@@ -123,21 +123,19 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
  */
 static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
-	//u_int32_t id = print_pkt(nfa);
-	u_int32_t id;
-	struct nfqnl_msg_packet_hdr* ph;
-	unsigned char* pkt;
-	struct iphdr* hdr_ip, *hdr_pre_ip = pkt1, *hdr_dec_ip = pkt1;
-	struct udphdr* hdr_udp, *hdr_pre_udp = &(pkt1[20]), *hdr_dec_udp;
-	u_int32_t len_recv;
-	u_int32_t len_send;
-	struct sockaddr_in sin = { .sin_family = AF_INET, .sin_addr = { 0 } };
-	uint16_t id_client = 0;
-	w2e_ct_entry_t* ct = NULL;
+	u_int32_t						id;
+	struct nfqnl_msg_packet_hdr		*ph;
+	unsigned char					*pkt;
+	struct iphdr					*hdr_ip,  *hdr_pre_ip = pkt1,         *hdr_dec_ip = pkt1;
+	struct udphdr					*hdr_udp, *hdr_pre_udp = &(pkt1[20]), *hdr_dec_udp;
+	u_int32_t						len_recv;
+	u_int32_t						len_send;
+	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_addr = { 0 } };
+	uint16_t						id_client = 0;
+	w2e_ct_entry_t					*ct = NULL;
+
 
 	w2e_ctrs.total_rx++;
-
-	//w2e_dbg_printf("entering callback\n");
 
 	ph = nfq_get_msg_packet_hdr(nfa);
 	id = ntohl(ph->packet_id);
@@ -164,11 +162,12 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 
 	hdr_udp = &(pkt[hdr_ip->ihl * 4]);
 
-	//w2e_dbg_printf("payload_len=%d, proto=0x%02X, (0x%04X)\n", len_recv, hdr_ip->protocol, ntohs(hdr_udp->dest));
-
-	if (hdr_ip->protocol == 0x11 // UDP
+	/**
+	 * Decapsulation needed.
+	 */
+	if (hdr_ip->protocol == 0x11 /** UDP */
 		&& ntohs(hdr_udp->dest) == W2E_UDP_SERVER_PORT_MARKER
-	) /* Decapsulation needed */
+	)
 	{
 		w2e_ctrs.decap++;
 		w2e_dbg_printf("Decap\n");
@@ -233,8 +232,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		 */
 		if (w2e_ctx.ip_dns)
 		{
-			if (hdr_dec_ip->protocol == 0x11 // UDP
-				&& hdr_dec_udp->dest == htons(53)) // DNS
+			if (hdr_dec_ip->protocol == 0x11 /** UDP */
+				&& hdr_dec_udp->dest == htons(53)) /** DNS */
 			{
 				w2e_dbg_printf("DNS processing OUT id_client=%d (plain sport=0x%04X)\n", id_client, ntohs(hdr_dec_udp->source));
 				/** Remember client's DNS server address */
@@ -244,20 +243,24 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 			}
 		}
 
-		/** For send to socket */
+		/** Address for socket send */
 		sin.sin_addr.s_addr = ntohl(hdr_dec_ip->daddr);
 
 
 		/**
 		 * Transport Layer CRC of decapsulated packet.
 		 */
-		if (hdr_dec_ip->protocol == 0x11) // UDP
+		if (hdr_dec_ip->protocol == 0x11) /** UDP */
 		{
 			nfq_udp_compute_checksum_ipv4(hdr_dec_udp, hdr_dec_ip);
 		}
-		else if (hdr_dec_ip->protocol == 0x06) // TCP
+		else if (hdr_dec_ip->protocol == 0x06) /** TCP */
 		{
 			nfq_tcp_compute_checksum_ipv4(hdr_dec_udp, hdr_dec_ip);
+		}
+		else
+		{
+			w2e_print_error("WARN: id_client=%d unknown transport protocol 0x%02X)\n", id_client, hdr_dec_ip->protocol);
 		}
 
 		/**
@@ -273,10 +276,11 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/** Send */
 		goto send_modified;
 	}
-	else /* Encapsulation needed */
+	/**
+	 * Encapsulation needed.
+	 */
+	else
 	{
-		w2e_ctrs.encap++;
-
 		/**
 		 * Get client's id from conntrack entry.
 		 */
@@ -288,14 +292,15 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		id_client = ct->id_client;
 
 		w2e_dbg_printf("Encap\n");
+		w2e_ctrs.encap++;
 
 		/**
 		 * Process DNS (if it is and set in config).
 		 */
 		if (w2e_ctx.ip_dns)
 		{
-			if (hdr_ip->protocol == 0x11 // UDP
-				&& hdr_udp->source == htons(53)) // DNS
+			if (hdr_ip->protocol == 0x11 /** UDP */
+				&& hdr_udp->source == htons(53)) /** DNS */
 			{
 				w2e_dbg_printf("DNS processing IN id_client=%d (plain sport=0x%04X) 0x%08X\n",
 								id_client, ntohs(hdr_udp->source), w2e_ctx.client_ctx[id_client].ip_client);
@@ -412,7 +417,11 @@ send_original:
 
 static void w2e_server_deinit()
 {
+	/**
+	 * Stop server worker.
+	 */
 	server_stop = 1;
+	sleep(3);
 
 	/**
 	 * Conntrack deinit.
@@ -423,22 +432,18 @@ static void w2e_server_deinit()
 		w2e_print_error("Conntrack deinit error\n");
 	}
 
-	w2e_log_printf("unbinding from queue 0\n");
+	/**
+	 * NFQUEUE deinit.
+	 */
+	w2e_log_printf("Unbinding from queue\n");
 	nfq_destroy_queue(qh);
-
-#ifdef INSANE
-	/* normally, applications SHOULD NOT issue this command, since
-	 * it detaches other programs/sockets from AF_INET, too ! */
-	w2e_log_printf("unbinding from AF_INET\n");
-	nfq_unbind_pf(h, AF_INET);
-#endif
-
-	w2e_log_printf("closing library handle\n");
+	w2e_log_printf("Closing library handle\n");
 	nfq_close(h);
 
 	/**
 	 * Crypto lib deinit.
 	 */
+	w2e_log_printf("Crypto deinit\n");
 	/** For all clients */
 	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
 	{
@@ -447,10 +452,15 @@ static void w2e_server_deinit()
 		{
 			/** Denit crypto lib */
 			w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle));
+			/** Zero ctx */
+			memset(&(w2e_ctx.client_ctx[i]), 0, sizeof(w2e_cfg_client_ctx_t));
 		}
 	}
 
-	// Close socket descriptor.
+	/**
+	 * Close socket descriptor.
+	 */
+	w2e_log_printf("TX socket close\n");
 	close(sock_tx);
 }
 
@@ -463,16 +473,22 @@ void sig_handler(int n)
 
 int main(int argc, char** argv)
 {
-	int fd;
-	int rv;
-	int val;
-	char buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
-	const char ini_default[] = W2E_INI_DEFAULT_NAME;
-	const char* ini_fname = ini_default;
+	int			fd;
+	int			rv;
+	int			val;
+	char		buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
+	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
+	const char	*ini_fname = ini_default;
+
 
 	w2e_log_printf("Server is starting...\n");
 
+
+	/**
+	 * SIGINT handler.
+	 */
 	signal(SIGINT, sig_handler);
+
 
 	/**
 	 * Conntrack init.
@@ -483,29 +499,40 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+
 	/**
 	 * TX raw socket init.
 	 */
+	/** Create socket. */
 	sock_tx = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 	if (sock_tx < 0)
 	{
 		w2e_print_error("Socket init error\n");
 		return 1;
 	}
-
-	// Set flag so socket expects us to provide IPv4 header.
+	/** Set flag so socket expects us to provide IPv4 header. */
 	val = 1;
 	if (setsockopt(sock_tx, IPPROTO_IP, IP_HDRINCL, &val, sizeof(val)) < 0)
 	{
 		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
 		return 1;
 	}
-	// Set flag so socket will not discover path MTU.
+	/** Set flag so socket will not discover path MTU. */
 	val = 0;
 	if (setsockopt(sock_tx, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0)
 	{
 		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
 		return 1;
+	}
+	/** Test if the socket is in blocking mode. */
+	if (!(fcntl(sockfd, F_GETFL) & O_NONBLOCK))
+	{
+		/** Put the socket in non-blocking mode. */
+		if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK) < 0)
+		{
+			w2e_print_error("fcntl() failed to set O_NONBLOCK\n");
+			return 1;
+		}
 	}
 
 
@@ -546,54 +573,70 @@ int main(int argc, char** argv)
 		}
 	}
 
-	w2e_log_printf("opening library handle\n");
+
+	/**
+	 * NFQUEUE init.
+	 */
+
+	w2e_log_printf("Opening library handle\n");
 	h = nfq_open();
 	if (!h)
 	{
-		w2e_print_error("error during nfq_open()\n");
+		w2e_print_error("Error during nfq_open()\n");
 		exit(1);
 	}
 
-	w2e_log_printf("unbinding existing nf_queue handler for AF_INET (if any)\n");
+	w2e_log_printf("Unbinding existing nf_queue handler for AF_INET (if any)\n");
 	if (nfq_unbind_pf(h, AF_INET) < 0)
 	{
-		w2e_print_error("error during nfq_unbind_pf()\n");
+		w2e_print_error("Error during nfq_unbind_pf()\n");
 		exit(1);
 	}
 
-	w2e_log_printf("binding nfnetlink_queue as nf_queue handler for AF_INET\n");
+	w2e_log_printf("Binding nfnetlink_queue as nf_queue handler for AF_INET\n");
 	if (nfq_bind_pf(h, AF_INET) < 0)
 	{
-		w2e_print_error("error during nfq_bind_pf()\n");
+		w2e_print_error("Error during nfq_bind_pf()\n");
 		exit(1);
 	}
 
-	w2e_log_printf("binding this socket to queue '0'\n");
+	w2e_log_printf("Binding this socket to queue '0'\n");
 	qh = nfq_create_queue(h, 0, &__w2e_server__cb, NULL);
 	if (!qh)
 	{
-		w2e_print_error("error during nfq_create_queue()\n");
+		w2e_print_error("Error during nfq_create_queue()\n");
 		exit(1);
 	}
 
-	w2e_log_printf("setting copy_packet mode\n");
+	w2e_log_printf("Setting copy_packet mode\n");
 	if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 0xffff) < 0)
 	{
-		w2e_print_error("can't set packet_copy mode\n");
+		w2e_print_error("Can't set packet_copy mode\n");
 		exit(1);
 	}
 
 	fd = nfq_fd(h);
 
-	// para el tema del loss:   while ((rv = recv(fd, buf, sizeof(buf), 0)) && rv >= 0)
 
+	/**
+	 * Main recv loop.
+	 */
 	while (!server_stop && (rv = recv(fd, buf, sizeof(buf), 0)))
 	{
-		w2e_dbg_printf("pkt received\n");
-		nfq_handle_packet(h, buf, rv);
+		if (rv >= 0)
+		{
+			w2e_dbg_printf("pkt received\n");
+			nfq_handle_packet(h, buf, rv);
+		}
+		else
+		{
+			w2e_print_error("recv() error\n");
+			exit(1);
+		}
 	}
 
-	w2e_log_printf("deinit\n");
+
+	w2e_log_printf("Exiting now\n");
 
 
 	return 0;
