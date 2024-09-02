@@ -417,11 +417,23 @@ send_original:
 
 static void w2e_server_deinit()
 {
+	/** Server already stopped (double signal failure pervention) */
+	if (server_stop)
+	{
+		w2e_print_error("Server is already stopped or being stopped\n");
+		return;
+	}
+
 	/**
 	 * Stop server worker.
 	 */
 	server_stop = 1;
-	sleep(3);
+
+	for (int i = 0; i < 3; i++)
+	{
+		w2e_log_printf("Wait %d...\n", i);
+		sleep(1);
+	}
 
 	/**
 	 * Conntrack deinit.
