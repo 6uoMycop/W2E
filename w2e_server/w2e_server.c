@@ -38,6 +38,11 @@ static volatile uint8_t server_stop = 0;
  */
 w2e_cfg_server_ctx_t w2e_ctx = { 0 };
 
+/**
+ * Threads.
+ */
+pthread_t th_main;
+
 
 /**
  * INI config parser.
@@ -415,7 +420,7 @@ send_original:
 	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
-static void w2e_server_deinit()
+static void __w2e_server__deinit()
 {
 	/** Server already stopped (double signal failure pervention) */
 	if (server_stop)
@@ -476,17 +481,46 @@ static void w2e_server_deinit()
 	close(sock_tx);
 }
 
-void sig_handler(int n)
+void __w2e_server__sig_handler(int n)
 {
 	(void)n;
-	w2e_server_deinit();
+	__w2e_server__deinit();
+}
+
+
+/**
+ * Main recv loop.
+ */
+static void* __w2e_server__worker_main(void* data)
+{
+	int rv;
+	(void)data;
+
+	w2e_log_printf("worker main start\n");
+
+	while (!server_stop)
+	{
+		rv = recv(fd, buf, sizeof(buf), 0);
+		if (rv >= 0)
+		{
+			w2e_dbg_printf("pkt received\n");
+			nfq_handle_packet(h, buf, rv);
+		}
+		else
+		{
+			w2e_print_error("recv() error %s\n", strerror(errno));
+			break;
+		}
+	}
+
+	w2e_log_printf("worker main exit\n");
+	return NULL;
 }
 
 
 int main(int argc, char** argv)
 {
 	int			fd;
-	int			rv;
 	int			val;
 	char		buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
 	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
@@ -499,7 +533,7 @@ int main(int argc, char** argv)
 	/**
 	 * SIGINT handler.
 	 */
-	signal(SIGINT, sig_handler);
+	signal(SIGINT, __w2e_server__sig_handler);
 
 
 	/**
@@ -629,23 +663,11 @@ int main(int argc, char** argv)
 
 	fd = nfq_fd(h);
 
-
 	/**
-	 * Main recv loop.
+	 * Threads start.
 	 */
-	while (!server_stop && (rv = recv(fd, buf, sizeof(buf), 0)))
-	{
-		if (rv >= 0)
-		{
-			w2e_dbg_printf("pkt received\n");
-			nfq_handle_packet(h, buf, rv);
-		}
-		else
-		{
-			w2e_print_error("recv() error\n");
-			exit(1);
-		}
-	}
+	pthread_create(&th_main, NULL, __w2e_server__worker_main, NULL);
+	pthread_join(th_main, NULL);
 
 
 	w2e_log_printf("Exiting now\n");
