@@ -130,6 +130,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	w2e_ct_entry_t					*ct = NULL;
 
 	(void)nfmsg;
+	(void)data;
 
 	w2e_ctrs.total_rx++;
 

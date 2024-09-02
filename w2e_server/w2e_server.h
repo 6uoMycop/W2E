@@ -24,6 +24,9 @@
 #include <linux/socket.h>
 #include <linux/netfilter.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
+#include <libnetfilter_queue/libnetfilter_queue_ipv4.h>
+#include <libnetfilter_queue/libnetfilter_queue_tcp.h>
+#include <libnetfilter_queue/libnetfilter_queue_udp.h>
 
 #include "w2e_common.h"
 #include "w2e_crypto.h"
