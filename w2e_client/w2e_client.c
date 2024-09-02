@@ -356,7 +356,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 					 * Decapsulation needed.
 					 */
 					if (hdr_udp && data && !addr.Outbound /** Inbound UDP */
-						&& ntohs(hdr_udp->SrcPort) & (uint16_t)(0xFF00) == W2E_SERVER_PORT_HB) /** With marker */
+						&& (ntohs(hdr_udp->SrcPort) & (uint16_t)(0xFF00)) == W2E_SERVER_PORT_HB) /** With marker */
 					{
 						w2e_dbg_printf("DEcap Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.decap++;
@@ -543,7 +543,7 @@ int main(int argc, char* argv[])
 	/**
 	 * Print art.
 	 */
-	printf("Version %s\n%s%s%s\n\n", W2E_VERSION, w2e_art__link_0, w2e_art__logo_large_0, w2e_art__name_large_0);
+	printf("Version %s\n%s%s%s\n\n", W2E_VERSION, w2e_art__link_0, w2e_art__logo_med_0, w2e_art__name_large_0);
 
 	w2e_log_printf("Client is starting...\n");
 
@@ -591,7 +591,9 @@ int main(int argc, char* argv[])
 		" !loopback"
 		" and ip"
 		//" and (tcp or udp)"
-		" and (" "udp.SrcPort == 5256"
+		" and ("
+			//"udp.SrcPort == 5256"
+			"(udp.SrcPort >= 43520 and udp.SrcPort <= 43775)"
 			" or tcp.DstPort == 443"
 			" or tcp.DstPort == 80"
 			/////////" ((tcp.DstPort == 443 or tcp.DstPort == 80) and ip.DstAddr != 35.226.111.211)"
