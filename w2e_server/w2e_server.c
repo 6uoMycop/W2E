@@ -525,10 +525,10 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	/** Test if the socket is in blocking mode. */
-	if (!(fcntl(sockfd, F_GETFL) & O_NONBLOCK))
+	if (!(fcntl(sock_tx, F_GETFL) & O_NONBLOCK))
 	{
 		/** Put the socket in non-blocking mode. */
-		if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK) < 0)
+		if (fcntl(sock_tx, F_SETFL, fcntl(sock_tx, F_GETFL) | O_NONBLOCK) < 0)
 		{
 			w2e_print_error("fcntl() failed to set O_NONBLOCK\n");
 			return 1;
