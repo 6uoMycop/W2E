@@ -51,12 +51,12 @@
 #define W2E_KEY_LEN (128 / 8)
 #endif // !W2E_KEY_LEN
 
-#ifndef W2E_CLIENT_PORT_HB
+#ifndef W2E_SERVER_PORT_HB
  /**
-  * Higher byte of client's port (prefix).
+  * Higher byte of server's port (prefix). //@TODO add [server] id somehow here
   */
-#define W2E_CLIENT_PORT_HB (uint16_t)(0xCC00)
-#endif // !W2E_MAX_CLIENTS
+#define W2E_SERVER_PORT_HB (uint16_t)(0xAA00)
+#endif // !W2E_SERVER_PORT_HB
 
 #ifndef W2E_TCP_MSS
   /**
@@ -149,10 +149,10 @@ void* shmm_create(size_t size)
 #endif /* 0 */
 
 
-/**
- * UDP encrypted marker.
- */
-#define W2E_UDP_SERVER_PORT_MARKER 0x1488
+///**
+// * UDP encrypted marker.
+// */
+//#define W2E_UDP_SERVER_PORT_MARKER 0x1488
 
 
 /**
@@ -173,15 +173,6 @@ static const uint8_t w2e_template_iph[] = {
 	0x00, 0x00, 0x40, 0x00,
 	0xFF, 0x11, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00
-};
-
-
-// UDP header template. <These> fields will be edited.
-// |      <UDP src>         |       <UDP dst>      |
-// |      <UDP len>         |       <UDP crc>      |
-static const uint8_t w2e_template_udph[] = {
-	0x00, 0x00, 0x14, 0x88, // DST here is W2E_UDP_SERVER_PORT_MARKER
 	0x00, 0x00, 0x00, 0x00
 };
 

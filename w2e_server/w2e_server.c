@@ -48,17 +48,12 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 
 	unsigned int tmp_len = 0;
 
-	static uint16_t tmp_id = 0; /** TODO test it // Saves last client's ID */
+	static uint8_t tmp_id = 0; /** TODO test it // Saves last client's ID */
 
 #define MATCH(s, n) (strcmp(section, s) == 0 && strcmp(name, n) == 0)
 	if (MATCH("client", "id"))
 	{
 		tmp_id = atoi(value);
-		if (tmp_id > 0xFF)
-		{
-			w2e_print_error("INI: [client] id: value must be in (0-255). Given %s\n", value);
-			return 0;
-		}
 		if (pconfig->client_ctx[tmp_id].is_configured)
 		{
 			w2e_print_error("INI: [client] id: Client ID %s duplicates in configuration file\n", value);
@@ -68,9 +63,9 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 		/** Client configured */
 		pconfig->client_ctx[tmp_id].is_configured = 1;
 		/** Port number calculation */
-		pconfig->client_ctx[tmp_id].port = htons(W2E_CLIENT_PORT_HB | tmp_id);
+		pconfig->client_ctx[tmp_id].id = tmp_id;
 
-		w2e_log_printf("\tINI: [client] id: %s (Port in net order: 0x%04X)\n", value, pconfig->client_ctx[tmp_id].port);
+		w2e_log_printf("\tINI: [client] id: %s (0x%02X)\n", value, pconfig->client_ctx[tmp_id].id);
 	}
 	else if (MATCH("client", "key"))
 	{
@@ -166,31 +161,28 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	 * Decapsulation needed.
 	 */
 	if (hdr_ip->protocol == 0x11 /** UDP */
-		&& ntohs(hdr_udp->dest) == W2E_UDP_SERVER_PORT_MARKER
+		&& ntohs(hdr_udp->dest) & (uint16_t)(0xFF00) == W2E_SERVER_PORT_HB
 	)
 	{
 		w2e_ctrs.decap++;
 		w2e_dbg_printf("Decap\n");
 
 		/**
-		 * Calculate client's id (lower port byte).
+		 * Calculate client's id (lower dst port byte).
 		 */
-		id_client = ntohs(hdr_udp->source) & (uint16_t)(0x00FF);
-		w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00), hdr_ip->saddr);
-		if (ntohs(hdr_udp->source) & (uint16_t)(0xFF00) != W2E_CLIENT_PORT_HB)
-		{
-			w2e_dbg_printf("id_client=%d (0x%04X)\n", id_client, ntohs(hdr_udp->source) & (uint16_t)(0xFF00));
-			w2e_print_error("Malformed packet! Client port is 0x%04X, must be 0x%02Xxx. Drop\n",
-				ntohs(hdr_udp->source), W2E_CLIENT_PORT_HB >> 8);
-			w2e_ctrs.err_rx++;
-			goto drop;
-		}
+		id_client = ntohs(hdr_udp->dest) & (uint16_t)(0x00FF);
+		w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->dest) & (uint16_t)(0xFF00), hdr_ip->saddr);
 		if (!w2e_ctx.client_ctx[id_client].is_configured) /** Client not configured - drop */
 		{
 			w2e_print_error("Malformed packet! Client port 0x%04X, not configured. Drop\n", ntohs(hdr_udp->source));
 			w2e_ctrs.err_rx++;
 			goto drop;
 		}
+
+		/**
+		 * Get clients src port.
+		 */
+		w2e_ctx.client_ctx[id_client].port_client = hdr_udp->source;
 
 		/**
 		 * Get client's IP.
@@ -336,18 +328,18 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/** IPv4 header */
 		memcpy(pkt1, w2e_template_iph, sizeof(w2e_template_iph));
 		/** UDP header */
-		memset(&(pkt1[sizeof(w2e_template_iph)]), 0, sizeof(w2e_template_udph));
+		memset(&(pkt1[sizeof(w2e_template_iph)]), 0, 8);
 
 
 		/**
 		 * New UDP header.
 		 */
 		/** Client's port */
-		hdr_pre_udp->dest = htons(W2E_CLIENT_PORT_HB | id_client);
+		hdr_pre_udp->dest = w2e_ctx.client_ctx[id_client].port_client;
 		/** Server's port */
-		hdr_pre_udp->source = htons(W2E_UDP_SERVER_PORT_MARKER);
+		hdr_pre_udp->source = htons(W2E_SERVER_PORT_HB | id_client);
 		/** Datagram length */
-		hdr_pre_udp->len = htons(len_send + sizeof(w2e_template_udph));
+		hdr_pre_udp->len = htons(len_send + 8);
 
 
 		len_send += W2E_PREAMBLE_SIZE;

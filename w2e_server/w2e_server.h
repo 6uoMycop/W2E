@@ -45,11 +45,12 @@
 typedef struct {
 	uint8_t		is_configured;		/** Is this client configured from INI file? */
 	/** INI configured */
-	uint16_t	port;				/** This client's UDP port (in network byte order) */
+	uint8_t		id;					/** This client's ID */
 	uint8_t		key[W2E_KEY_LEN];	/** AES key */
 	/** Runtime context */
 	w2e_crypto__handle_t handle;	/** Cryptographic library handle */
 	uint32_t	ip_client;			/** Server visible client's IP address (in network byte order) */
+	uint16_t	port_client;		/** Server visible client's port of encapsulated UDP packets (in network byte order) */
 	uint32_t	ip_dns_last;		/** Last client DNS address in network byte order */
 } w2e_cfg_client_ctx_t;
 

@@ -45,15 +45,11 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	if (MATCH("client", "id"))
 	{
 		pconfig->id = atoi(value);
-		if (pconfig->id > 0xFF)
-		{
-			w2e_print_error("INI: [client] id: value must be in (0-255). Given %s\n", value);
-			return 0;
-		}
-		/** Port number calculation */
-		pconfig->port_client = htons(W2E_CLIENT_PORT_HB | pconfig->id);
 
-		w2e_log_printf("\tINI: [client] id: %s (Port in net order: 0x%04X)\n", value, pconfig->port_client);
+		/** Port number calculation */
+		pconfig->port_server = htons(W2E_SERVER_PORT_HB | pconfig->id);
+
+		w2e_log_printf("\tINI: [client] id: %s (0x%02X). Dst port in net order: 0x%04X\n", value, pconfig->id, pconfig->port_server);
 	}
 	else if (MATCH("client", "ip"))
 	{
@@ -359,7 +355,8 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 					/**
 					 * Decapsulation needed.
 					 */
-					if (hdr_udp && data && !addr.Outbound && hdr_udp->SrcPort == htons(W2E_UDP_SERVER_PORT_MARKER)) /* Inbound UDP with marker */
+					if (hdr_udp && data && !addr.Outbound /** Inbound UDP */
+						&& ntohs(hdr_udp->SrcPort) & (uint16_t)(0xFF00) == W2E_SERVER_PORT_HB) /** With marker */
 					{
 						w2e_dbg_printf("DEcap Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.decap++;
@@ -459,11 +456,12 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/** IPv4 header */
 						memcpy(pkt[1], w2e_template_iph, sizeof(w2e_template_iph));
 						/** UDP header */
-						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph)); //@TODO memset 0
+						memset(&(pkt[1][sizeof(w2e_template_iph)]), 0, 8);
 
 						/** New UDP header */
-						hdr_pre_udp->SrcPort = w2e_cfg_client.port_client;
-						hdr_pre_udp->Length = htons(len_send + sizeof(w2e_template_udph));
+						hdr_pre_udp->SrcPort = htons(W2E_SERVER_PORT_HB | w2e_cfg_client.id); /** Same port for now //@TODO test */
+						hdr_pre_udp->DstPort = htons(W2E_SERVER_PORT_HB | w2e_cfg_client.id);
+						hdr_pre_udp->Length = htons(len_send + 8);
 
 
 						len_send += W2E_PREAMBLE_SIZE;
