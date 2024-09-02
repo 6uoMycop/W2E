@@ -121,14 +121,15 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	u_int32_t						id;
 	struct nfqnl_msg_packet_hdr		*ph;
 	unsigned char					*pkt;
-	struct iphdr					*hdr_ip,  *hdr_pre_ip = pkt1,         *hdr_dec_ip = pkt1;
-	struct udphdr					*hdr_udp, *hdr_pre_udp = &(pkt1[20]), *hdr_dec_udp;
-	u_int32_t						len_recv;
-	u_int32_t						len_send;
+	struct iphdr					*hdr_ip,  *hdr_pre_ip = (struct iphdr*)pkt1,          *hdr_dec_ip = (struct iphdr*)pkt1;
+	struct udphdr					*hdr_udp, *hdr_pre_udp = (struct udphdr*)&(pkt1[20]), *hdr_dec_udp;
+	int								len_recv;
+	int								len_send;
 	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_addr = { 0 } };
 	uint16_t						id_client = 0;
 	w2e_ct_entry_t					*ct = NULL;
 
+	(void)nfmsg;
 
 	w2e_ctrs.total_rx++;
 
@@ -148,20 +149,20 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	/**
 	 * Packet processing.
 	 */
-	hdr_ip = pkt;
+	hdr_ip = (struct iphdr*)pkt;
 	if (hdr_ip->version != 4)
 	{
 		w2e_ctrs.total_tx++;
 		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 	}
 
-	hdr_udp = &(pkt[hdr_ip->ihl * 4]);
+	hdr_udp = (struct udphdr*)&(pkt[hdr_ip->ihl * 4]);
 
 	/**
 	 * Decapsulation needed.
 	 */
 	if (hdr_ip->protocol == 0x11 /** UDP */
-		&& ntohs(hdr_udp->dest) & (uint16_t)(0xFF00) == W2E_SERVER_PORT_HB
+		&& (ntohs(hdr_udp->dest) & (uint16_t)(0xFF00)) == W2E_SERVER_PORT_HB
 	)
 	{
 		w2e_ctrs.decap++;
@@ -212,7 +213,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/**
 		 * Get decrypted packet's transport header address.
 		 */
-		hdr_dec_udp = &(pkt1[hdr_ip->ihl * 4]);
+		hdr_dec_udp = (struct udphdr*)&(pkt1[hdr_ip->ihl * 4]);
 
 		/**
 		 * Mangle source address.
@@ -263,7 +264,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/**
 		 * Create conntrack entry.
 		 */
-		w2e_conntrack__create(hdr_dec_ip, hdr_dec_udp, id_client);
+		w2e_conntrack__create((uint8_t*)hdr_dec_ip, (uint8_t*)hdr_dec_udp, id_client);
 
 		/** Send */
 		goto send_modified;
@@ -276,7 +277,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		/**
 		 * Get client's id from conntrack entry.
 		 */
-		ct = w2e_conntrack__resolve(hdr_ip, hdr_udp);
+		ct = w2e_conntrack__resolve((uint8_t*)hdr_ip, (uint8_t*)hdr_udp);
 		if (!ct) /** Not resolved */
 		{
 			goto send_original;
