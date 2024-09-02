@@ -32,18 +32,12 @@ static int fd;
  */
 static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
 
-static volatile uint8_t server_stop = 0;
+static volatile sig_atomic_t server_stop = 0;
 
 /**
  * Context.
  */
 static w2e_cfg_server_ctx_t w2e_ctx = { 0 };
-
-/**
- * Threads.
- */
-static pthread_t th_main;
-
 
 /**
  * INI config parser.
@@ -663,11 +657,11 @@ int main(int argc, char** argv)
 
 	fd = nfq_fd(h);
 
+
 	/**
-	 * Threads start.
+	 * Start.
 	 */
-	pthread_create(&th_main, NULL, __w2e_server__worker_main, NULL);
-	pthread_join(th_main, NULL);
+	__w2e_server__worker_main(NULL);
 
 
 	w2e_log_printf("Exiting now\n");

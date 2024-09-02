@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <pthread.h>
 #include <signal.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
