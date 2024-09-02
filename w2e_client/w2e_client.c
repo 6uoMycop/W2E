@@ -543,7 +543,7 @@ int main(int argc, char* argv[])
 	/**
 	 * Print art.
 	 */
-	printf("Version %s\n%s%s%s\n\n", W2E_VERSION, w2e_art__link_0, w2e_art__logo_med_0, w2e_art__name_large_0);
+	printf("%s\n\n", w2e_art__combined);
 
 	w2e_log_printf("Client is starting...\n");
 

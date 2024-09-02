@@ -13,11 +13,14 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef _MSC_VER // Windows
 #include <winsock.h>
+#define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else // Linux
 #include <netinet/in.h>
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #if 0
 #include <sys/mman.h>
 #endif /* 0 */
@@ -84,7 +87,7 @@
 	#endif // !W2E_VERBOSE
 
 	/** Define debug printf macro */
-	#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
+	#define w2e_dbg_printf(fmt, ...) printf("[DBG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
 
 	#ifndef W2E_DEBUG_NO_HEX
 	/** Debug buffer hex dump macro */
@@ -109,14 +112,14 @@
 #define w2e_log_printf(...) do {} while (0);
 #else
 /** Define verbose printf macro */
-#define w2e_log_printf(fmt, ...) printf("[LOG]   %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
+#define w2e_log_printf(fmt, ...) printf("[LOG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
 #endif // !W2E_VERBOSE
 
 
 /**
  * Define error printf macro.
  */
-#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s:%d\t%s():\t" fmt, __FILE__, __LINE__, __func__, ##__VA_ARGS__);
+#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR]%16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
 
 
 /**
