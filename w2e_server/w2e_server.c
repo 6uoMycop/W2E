@@ -13,18 +13,19 @@
 /**
  * Global counters.
  */
-w2e_ctrs_t w2e_ctrs = { 0 };
+static w2e_ctrs_t w2e_ctrs = { 0 };
 
 /**
  * TX raw socket.
  */
-int sock_tx = -1;
+static int sock_tx = -1;
 
 /**
  * NFQUEUE.
  */
 static struct nfq_handle* h = NULL;
 static struct nfq_q_handle* qh = NULL;
+static int fd;
 
 /**
  * Send buffer.
@@ -36,12 +37,12 @@ static volatile uint8_t server_stop = 0;
 /**
  * Context.
  */
-w2e_cfg_server_ctx_t w2e_ctx = { 0 };
+static w2e_cfg_server_ctx_t w2e_ctx = { 0 };
 
 /**
  * Threads.
  */
-pthread_t th_main;
+static pthread_t th_main;
 
 
 /**
@@ -493,7 +494,8 @@ void __w2e_server__sig_handler(int n)
  */
 static void* __w2e_server__worker_main(void* data)
 {
-	int rv;
+	int		rv;
+	char	buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
 	(void)data;
 
 	w2e_log_printf("worker main start\n");
@@ -520,9 +522,7 @@ static void* __w2e_server__worker_main(void* data)
 
 int main(int argc, char** argv)
 {
-	int			fd;
 	int			val;
-	char		buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
 	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char	*ini_fname = ini_default;
 
