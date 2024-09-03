@@ -1,4 +1,5 @@
 add_compile_definitions(W2E_VERSION="${CMAKE_PROJECT_VERSION}")
+add_compile_definitions(W2E_LINK="https://github.com/6uoMycop/W2E")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_compile_definitions(W2E_DEBUG)

@@ -509,6 +509,11 @@ int main(int argc, char** argv)
 	const char	*ini_fname = ini_default;
 
 
+	/**
+	 * Print art.
+	 */
+	printf("%s\n\n", w2e_art__combined_sml);
+
 	w2e_log_printf("Server is starting...\n");
 
 
