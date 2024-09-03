@@ -152,7 +152,7 @@ const char w2e_art__combined[] =
 
 const char w2e_art__combined_sml[] =
 "        .........  " W2E_LINK "\n"
-"      ............ " W2E_VERSION " " __DATE__ "\n"
+"      ............ v" W2E_VERSION "    " __DATE__ "\n"
 "      .........##.  ...      ...\n"
 "     .....##.....  .##......... \n"
 "     .##.........  ............ \n"
