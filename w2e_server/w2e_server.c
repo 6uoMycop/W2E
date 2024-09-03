@@ -167,13 +167,13 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	)
 	{
 		w2e_ctrs.decap++;
-		w2e_dbg_printf("Decap\n");
+		//w2e_dbg_printf("Decap\n");
 
 		/**
 		 * Calculate client's id (lower dst port byte).
 		 */
 		id_client = ntohs(hdr_udp->dest) & (uint16_t)(0x00FF);
-		w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->dest) & (uint16_t)(0xFF00), hdr_ip->saddr);
+		//w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->dest) & (uint16_t)(0xFF00), hdr_ip->saddr);
 		if (!w2e_ctx.client_ctx[id_client].is_configured) /** Client not configured - drop */
 		{
 			w2e_print_error("Malformed packet! Client port 0x%04X, not configured. Drop\n", ntohs(hdr_udp->source));
@@ -487,7 +487,7 @@ static void* __w2e_server__worker_main(void* data)
 		rv = recv(fd, buf, sizeof(buf), 0);
 		if (rv >= 0)
 		{
-			w2e_dbg_printf("pkt received\n");
+			//w2e_dbg_printf("pkt received\n");
 			nfq_handle_packet(h, buf, rv);
 		}
 		else
