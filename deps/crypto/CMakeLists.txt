@@ -4,6 +4,7 @@
 #
 
 add_library (crypto STATIC
+	"common.h"
 	"aes.h"
 	"aes_i.h"
 	"aes-gcm.c"

@@ -2,7 +2,6 @@
 #
 
 add_library (w2e_crypto STATIC
-	"common.h"
 	"w2e_crypto.h"
 	"w2e_crypto.c"
 )
