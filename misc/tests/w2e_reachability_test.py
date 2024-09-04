@@ -9,8 +9,55 @@
 
 
 import sys
+import signal
 from subprocess import Popen
 from time import time
+
+
+# Results
+ctr_all = 0   # Total number of tested links
+ctr_ok  = 0   # Number of passed tests
+r_dns   = []  # DNS error sites
+r_err   = []  # Unreachable sites
+
+
+# Present results
+def results():
+    ctr_dns = len(r_dns)
+    ctr_err = len(r_err)
+
+    print()
+    print('Total links tested:   ', ctr_all)
+    print('    Tests passed:     ', ctr_ok)
+    print('    Errors:           ', ctr_dns + ctr_err)
+    print('        DNS:          ', ctr_dns)
+    print('        Connection:   ', ctr_err)
+    print()
+
+    if len(r_dns):
+        print()
+        print('DNS error links:', ctr_dns)
+        for e in r_dns:
+            print(e, end='')
+        print()
+
+    if len(r_err):
+        print()
+        print('Connection error links:', ctr_err)
+        for e in r_err:
+            print(e, end='')
+        print()
+
+
+# SIGINT handler (not to lose results on interrupt)
+def signal_handler(sig, frame):
+    print()
+    print('TEST INTERRUPT')
+
+    # Print results
+    results()
+
+    exit(0)
 
 
 # Test a URL routine
@@ -39,11 +86,7 @@ def test(url, timeout=2, verbose=False):
 if __name__ == '__main__':
     filename = sys.argv[1]
 
-    # Results
-    ctr_all = 0  # Total number of tested links
-    ctr_ok = 0  # Number of passed tests
-    r_dns = []  # DNS error sites
-    r_err = []  # Unreachable sites
+    signal.signal(signal.SIGINT, signal_handler)
 
     print('Test file:', filename)
     print('----------')
@@ -69,28 +112,5 @@ if __name__ == '__main__':
             # Print time
             print('URLs checked:', ctr_all, '\tTime elapsed:', round(time() - t_start, 1), 's', end='\r')
 
-    ctr_dns = len(r_dns)
-    ctr_err = len(r_err)
-
-    # Present results
-    print()
-    print('Total links tested:   ', ctr_all)
-    print('    Tests passed:     ', ctr_ok)
-    print('    Errors:           ', ctr_dns + ctr_err)
-    print('        DNS:          ', ctr_dns)
-    print('        Connection:   ', ctr_err)
-    print()
-
-    if len(r_dns):
-        print()
-        print('DNS error links:', ctr_dns)
-        for e in r_dns:
-            print(e, end='')
-        print()
-
-    if len(r_err):
-        print()
-        print('Connection error links:', ctr_err)
-        for e in r_err:
-            print(e, end='')
-        print()
+    # Print results
+    results()
