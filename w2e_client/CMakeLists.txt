@@ -13,8 +13,9 @@ file(COPY "${CMAKE_HOME_DIRECTORY}/WinDivert/x64/WinDivert64.sys" DESTINATION ${
 # Copy configs to be near EXE
 file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/w2e_client/*.config") # For wildcard COPY
 file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-# Copy WinDivert stopping BAT to be near EXE
-file(COPY "${CMAKE_HOME_DIRECTORY}/misc/w2e_driver_stop.bat" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy scripts to be near EXE
+file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/misc/scripts_win/*") # For wildcard COPY
+file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 # Add resource
 target_sources(w2e_client PRIVATE w2e_client.rc)
 
