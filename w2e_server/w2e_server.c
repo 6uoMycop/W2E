@@ -543,13 +543,20 @@ int main(int argc, char** argv)
 		w2e_print_error("Socket init error\n");
 		return 1;
 	}
-	/** Set flag so socket expects us to provide IPv4 header. */
-	val = 1;
-	if (setsockopt(sock_tx, IPPROTO_IP, IP_HDRINCL, &val, sizeof(val)) < 0)
+	/** Bind to configured interface //@TODO from config */
+	const char* interface_name = "ens4";
+	if (setsockopt(sock_tx, SOL_SOCKET, SO_BINDTODEVICE, interface_name, strlen(interface_name)) < 0)
 	{
-		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
+		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", interface_name);
 		return 1;
 	}
+	////** Set flag so socket expects us to provide IPv4 header. */
+	///val = 1;
+	///if (setsockopt(sock_tx, IPPROTO_IP, IP_HDRINCL, &val, sizeof(val)) < 0)
+	///{
+	///	w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
+	///	return 1;
+	///}
 	/** Set flag so socket will not discover path MTU. */
 	val = 0;
 	if (setsockopt(sock_tx, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0)

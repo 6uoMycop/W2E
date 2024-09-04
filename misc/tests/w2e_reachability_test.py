@@ -1,7 +1,7 @@
 '''
 * \file   w2e_reachability_test.py
 * \brief  Automatic reachability test tries to connect to sites in a file and counts statistics (Windows)
-*         Usage: python .\w2e_reachability_test.py .\sites.txt
+*         Usage: python .\w2e_reachability_test.py .\sites1000.txt
 *
 * \author 6uoMycop
 * \date   September 2024
@@ -78,13 +78,15 @@ if __name__ == '__main__':
     print()
 
     if len(r_dns):
-        print('DNS error links:')
+        print()
+        print('DNS error links:', len(r_dns))
         for e in r_dns:
-            print(e)
+            print(e, end='')
         print()
 
     if len(r_err):
-        print('Connection error links:')
+        print()
+        print('Connection error links:', len(r_err))
         for e in r_err:
-            print(e)
+            print(e, end='')
         print()
