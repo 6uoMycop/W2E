@@ -125,7 +125,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	struct udphdr					*hdr_udp, *hdr_pre_udp = (struct udphdr*)&(pkt1[20]), *hdr_dec_udp;
 	int								len_recv;
 	int								len_send;
-	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_addr = { 0 } };
+	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_port = 0, .sin_addr = { 0 } };
 	uint16_t						id_client = 0;
 	w2e_ct_entry_t					*ct = NULL;
 
@@ -493,7 +493,6 @@ static void* __w2e_server__worker_main(void* data)
 		else
 		{
 			w2e_print_error("recv() error %s\n", strerror(errno));
-			break;
 		}
 	}
 
@@ -650,6 +649,13 @@ int main(int argc, char** argv)
 
 	w2e_log_printf("Setting copy_packet mode\n");
 	if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 0xffff) < 0)
+	{
+		w2e_print_error("Can't set packet_copy mode\n");
+		exit(1);
+	}
+
+	w2e_log_printf("Setting queue length\n");
+	if (nfq_set_queue_maxlen(qh, 0xFFFFFFFF) < 0)
 	{
 		w2e_print_error("Can't set packet_copy mode\n");
 		exit(1);
