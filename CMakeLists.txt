@@ -13,27 +13,29 @@ project ("W2E" VERSION 0.2 LANGUAGES C)
 # Common
 include_directories(
 	"w2e_common"
-	"inih"
+	"deps/inih"
+	"deps/crypto"
 	"w2e_crypto"
 )
 link_directories(
-	"${CMAKE_BINARY_DIR}/inih"
+	"${CMAKE_BINARY_DIR}/deps/inih"
+	"${CMAKE_BINARY_DIR}/deps/crypto"
 	"${CMAKE_BINARY_DIR}/w2e_crypto"
 )
 
 # Windows-specific
 if (MSVC)
 include_directories(
-	"WinDivert/include"
+	"deps/WinDivert/include"
 )
-link_directories("WinDivert/x64")  # 64bit
-# link_directories("WinDivert/x86")  # 32bit
+link_directories("deps/WinDivert/x64")
 endif ()
 
 # Linux-specific # TODO uncomment this in release
 if (UNIX)
 include_directories(
 	"w2e_conntrack"
+	"deps/xxhash"
 )
 link_directories(
 	"${CMAKE_BINARY_DIR}/w2e_conntrack"
@@ -53,8 +55,9 @@ include(DefineOptions.cmake)
 
 # Подпроекты
 
-add_subdirectory ("w2e_crypto")  # Cryptographic library (Windows & Linux)
-add_subdirectory ("inih")  # INI parser library (Windows & Linux)
+add_subdirectory ("deps/crypto")  # AES implementation (Windows & Linux)
+add_subdirectory ("w2e_crypto")  # Cryptographic library wrapper and utils (Windows & Linux)
+add_subdirectory ("deps/inih")  # INI parser library (Windows & Linux)
 
 if (MSVC)
 add_subdirectory ("w2e_client")  # Client application (Windows)

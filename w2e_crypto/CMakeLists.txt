@@ -2,14 +2,12 @@
 #
 
 add_library (w2e_crypto STATIC
-	"w2e_crypto.h"
-	"aes.h"
-	"aes_i.h"
-	"aes-gcm.c"
 	"common.h"
-	"aes-internal-enc.c"
-	"aes-internal-dec.c"
+	"w2e_crypto.h"
 	"w2e_crypto.c"
+)
+target_link_libraries(w2e_crypto
+	PUBLIC crypto
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.21)

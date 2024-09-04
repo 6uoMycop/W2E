@@ -61,10 +61,10 @@ def signal_handler(sig, frame):
 
 
 # Test a URL routine
-#     cURL ret codes
-#     0 - OK
-#     2 - SYNTAX ERROR - shouldn't happen
-#     6 - DNS error
+#   cURL ret codes
+#     0  - OK
+#     2  - SYNTAX ERROR - shouldn't happen
+#     6  - DNS error
 #     28 - Timeout
 #     35 - Connection reset
 #     56 - Recv failure: Connection was reset
@@ -82,7 +82,7 @@ def test(url, timeout=2, verbose=False):
 
 
 # Takes filename as an argument.
-# File contains list of URL's to test, each on a new line.
+# File contains list of URLs to test, each on a new line.
 if __name__ == '__main__':
     filename = sys.argv[1]
 
@@ -95,7 +95,6 @@ if __name__ == '__main__':
 
     with open(filename, mode='r') as f:
         for url in f:
-            ctr_all += 1
             # Execute test
             ret = test(url)
             # Result processing
@@ -108,7 +107,8 @@ if __name__ == '__main__':
                 exit(1)
             else:  # Unreachable
                 r_err.append(url)
-
+                
+            ctr_all += 1
             # Print time
             print('URLs checked:', ctr_all, '\tTime elapsed:', round(time() - t_start, 1), 's', end='\r')
 
