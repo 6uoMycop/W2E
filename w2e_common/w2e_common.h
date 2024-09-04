@@ -13,11 +13,14 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef _MSC_VER // Windows
 #include <winsock.h>
+#define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else // Linux
 #include <netinet/in.h>
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #if 0
 #include <sys/mman.h>
 #endif /* 0 */
@@ -51,13 +54,19 @@
 #define W2E_KEY_LEN (128 / 8)
 #endif // !W2E_KEY_LEN
 
-#ifndef W2E_CLIENT_PORT_HB
+#ifndef W2E_SERVER_PORT_HB
  /**
-  * Higher byte of client's port (prefix).
+  * Higher byte of server's port (prefix). //@TODO add [server] id somehow here
   */
-#define W2E_CLIENT_PORT_HB (uint16_t)(0xCC00)
-#endif // !W2E_MAX_CLIENTS
+#define W2E_SERVER_PORT_HB (uint16_t)(0xAA00)
+#endif // !W2E_SERVER_PORT_HB
 
+#ifndef W2E_TCP_MSS
+  /**
+   * TCP MSS size.
+   */
+#define W2E_TCP_MSS (uint16_t)(1340)
+#endif // !W2E_TCP_MSS
 
 /**
  * Debug log.
@@ -78,7 +87,7 @@
 	#endif // !W2E_VERBOSE
 
 	/** Define debug printf macro */
-	#define w2e_dbg_printf(fmt, ...) printf("[DBG] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+	#define w2e_dbg_printf(fmt, ...) printf("[DBG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
 
 	#ifndef W2E_DEBUG_NO_HEX
 	/** Debug buffer hex dump macro */
@@ -103,14 +112,14 @@
 #define w2e_log_printf(...) do {} while (0);
 #else
 /** Define verbose printf macro */
-#define w2e_log_printf(fmt, ...) printf("[LOG] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+#define w2e_log_printf(fmt, ...) printf("[LOG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
 #endif // !W2E_VERBOSE
 
 
 /**
  * Define error printf macro.
  */
-#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR] %s()\t%s:%d:\t" fmt, __func__, __FILE__, __LINE__, ##__VA_ARGS__);
+#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR]%16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
 
 
 /**
@@ -143,10 +152,10 @@ void* shmm_create(size_t size)
 #endif /* 0 */
 
 
-/**
- * UDP encrypted marker.
- */
-#define W2E_UDP_SERVER_PORT_MARKER 0x1488
+///**
+// * UDP encrypted marker.
+// */
+//#define W2E_UDP_SERVER_PORT_MARKER 0x1488
 
 
 /**
@@ -171,15 +180,11 @@ static const uint8_t w2e_template_iph[] = {
 };
 
 
-// UDP header template. <These> fields will be edited.
-// |      <UDP src>         |       <UDP dst>      |
-// |      <UDP len>         |       <UDP crc>      |
-static const uint8_t w2e_template_udph[] = {
-	0x00, 0x00, 0x14, 0x88, // DST here is W2E_UDP_SERVER_PORT_MARKER
-	0x00, 0x00, 0x00, 0x00
-};
-
-
+/**
+ * Vaildate decapsulated packet.
+ * Check if packet starts from IPv4 header (4) length of 40 bytes (5).
+ */
+#define w2e_common__validate_dec(p) (p[0] == 0x45)
 
 
 #endif // __W2E_COMMON_H

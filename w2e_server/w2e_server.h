@@ -13,7 +13,10 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <signal.h>
+#include<arpa/inet.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
@@ -21,8 +24,12 @@
 #include <linux/socket.h>
 #include <linux/netfilter.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
+#include <libnetfilter_queue/libnetfilter_queue_ipv4.h>
+#include <libnetfilter_queue/libnetfilter_queue_tcp.h>
+#include <libnetfilter_queue/libnetfilter_queue_udp.h>
 
 #include "w2e_common.h"
+#include "w2e_art.h"
 #include "w2e_crypto.h"
 #include "w2e_conntrack.h"
 
@@ -33,7 +40,7 @@
 /**
  * Maximum number of clients.
  */
-#define W2E_MAX_CLIENTS 2
+#define W2E_MAX_CLIENTS 255
 #endif // !W2E_MAX_CLIENTS
 
 
@@ -43,10 +50,12 @@
 typedef struct {
 	uint8_t		is_configured;		/** Is this client configured from INI file? */
 	/** INI configured */
-	uint16_t	port;				/** This client's UDP port (in network byte order) */
+	uint8_t		id;					/** This client's ID */
 	uint8_t		key[W2E_KEY_LEN];	/** AES key */
 	/** Runtime context */
-	uint32_t	ip_client;			/** Client's IP address (in network byte order) */
+	w2e_crypto__handle_t handle;	/** Cryptographic library handle */
+	uint32_t	ip_client;			/** Server visible client's IP address (in network byte order) */
+	uint16_t	port_client;		/** Server visible client's port of encapsulated UDP packets (in network byte order) */
 	uint32_t	ip_dns_last;		/** Last client DNS address in network byte order */
 } w2e_cfg_client_ctx_t;
 
@@ -61,7 +70,7 @@ typedef struct {
 	uint32_t				ip_dns;
 
 	/**
-	 * INI configured // DNS server's IP address (in network byte order). If 0 -- don't substitute.
+	 * INI configured // Local server's IP address (in network byte order).
 	 */
 	uint32_t				ip_server;
 

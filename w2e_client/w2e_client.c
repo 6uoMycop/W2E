@@ -16,6 +16,9 @@
 static HANDLE g_filters[W2E_MAX_FILTERS];
 static int g_filter_num = 0;
 
+/** Crypto lib handle */
+w2e_crypto__handle_t crypto_handle = { 0 };
+
 static volatile uint8_t client_stop = 0;
 
 /**
@@ -42,30 +45,21 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	if (MATCH("client", "id"))
 	{
 		pconfig->id = atoi(value);
-		if (pconfig->id > 0xFF)
-		{
-			w2e_print_error("INI: [client] id: value must be in (0-255). Given %s\n", value);
-			return 0;
-		}
-		/** Port number calculation */
-		pconfig->port_client = htons(W2E_CLIENT_PORT_HB | pconfig->id);
 
-		w2e_log_printf("\tINI: [client] id: %s (Port in net order: 0x%04X)\n", value, pconfig->port_client);
+		/** Port number calculation */
+		pconfig->port_server = htons(W2E_SERVER_PORT_HB | pconfig->id);
+
+		w2e_log_printf("\tINI: [client] id: %s (0x%02X). Dst port in net order: 0x%04X\n", value, pconfig->id, pconfig->port_server);
 	}
 	else if (MATCH("client", "ip"))
 	{
-		tmp_len = strlen(value);
-		if (tmp_len == 0)
-		{
-			pconfig->ip_client = 0;
-		}
-		else if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
+		if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
 		{
 			w2e_print_error("INI: [client] ip: wrong IP %s\n", value);
 			return 0;
 		}
 
-		w2e_log_printf("\tINI: [client] ip: %s (Net order 0x%08X)\n", tmp_len ? value : "COPY SAME", pconfig->ip_server);
+		w2e_log_printf("\tINI: [client] ip: %s (Net order 0x%08X)\n", value, pconfig->ip_server);
 	}
 	else if (MATCH("server", "ip"))
 	{
@@ -209,6 +203,7 @@ static void __w2c_client__sigint_handler(int sig)
 	
 	client_stop = 1;
 	__w2e_client__deinit_all(g_filters, g_filter_num);
+	w2e_crypto__deinit(&crypto_handle);
 	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
 }
@@ -258,6 +253,44 @@ static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT pack
 
 
 /**
+ * Mangle MSS in TCP segment (if present MSS is larger than given value). Returns 0 on success.
+ */
+static inline int __w2c_client__tcp_set_mss(PWINDIVERT_TCPHDR hdr_tcp, uint16_t value)
+{
+	uint8_t* p = (uint8_t*)hdr_tcp + 20; /** Options start here */
+	uint8_t* end = (uint8_t*)hdr_tcp + hdr_tcp->HdrLength * 4; /** Options end here */
+	uint8_t size, kind;
+
+	while (p < end)
+	{
+		kind = *p++;
+		if (kind == 0) /** End of the Options List */
+		{
+			break;
+		}
+		if (kind == 1) /** NOP */
+		{
+			continue;
+		}
+		size = *p++;
+		if (kind == 2) /** MSS */
+		{
+			if (ntohs(*(uint16_t*)p) > value) /** Set if present MSS is larger */
+			{
+				w2e_dbg_printf("MSS: Changing MSS from %d to %d\n", ntohs(*(uint16_t*)p), value);
+				*(uint16_t*)p = htons(value);
+			}
+			return 0;
+		}
+		p += (size - 2);
+	}
+
+	w2e_log_printf("MSS: Not found MSS\n");
+	return 1;
+}
+
+
+/**
  * Client's main packet processing loop.
  */
 static void __w2c_client__main_loop(HANDLE w_filter)
@@ -272,6 +305,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 
 	PWINDIVERT_IPHDR		hdr_ip;
 	PWINDIVERT_UDPHDR		hdr_udp;
+	PWINDIVERT_TCPHDR		hdr_tcp;
 
 	PVOID					data;
 	UINT					len_data;
@@ -279,7 +313,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 	static uint8_t			pkt[2][W2E_MAX_PACKET_SIZE] = { 0 };
 
 	PWINDIVERT_IPHDR		hdr_pre_ip		= (PWINDIVERT_IPHDR)	& (pkt[1][0]);  // Preamble IPv4 header
-	PWINDIVERT_UDPHDR		hdr_pre_udp		= (PWINDIVERT_UDPHDR)	& (pkt[1][20]); // Preamble UDP header
+	PWINDIVERT_UDPHDR		hdr_pre_udp		= (PWINDIVERT_UDPHDR)	& (pkt[1][20]); // Preamble UDP header //@TODO recalculate from IHL on every decap
 
 	w2e_log_printf("Client loop operating\n");
 
@@ -290,11 +324,11 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 		 */
 		if (WinDivertRecv(w_filter, pkt[0], sizeof(pkt[0]), &len_recv, &addr))
 		{
-			w2e_dbg_printf("Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 			w2e_ctrs.total_rx++; /* RX succeeded */
 
 			hdr_ip			= (PWINDIVERT_IPHDR)NULL;
 			hdr_udp			= (PWINDIVERT_UDPHDR)NULL;
+			hdr_tcp			= (PWINDIVERT_TCPHDR)NULL;
 
 			/**
 			 * Parse packet.
@@ -307,7 +341,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 				&proto,
 				NULL, //&hdr_icmp,
 				NULL, //&hdr_icmpv6,
-				NULL, //&hdr_tcp,
+				&hdr_tcp,
 				&hdr_udp,
 				&data,
 				&len_data,
@@ -318,20 +352,54 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 
 				if (hdr_ip)
 				{
-					if (hdr_udp && data && !addr.Outbound && hdr_udp->SrcPort == htons(W2E_UDP_SERVER_PORT_MARKER)) /* Inbound UDP with marker */
-					{ /* Decapsulation needed */
+					/**
+					 * Decapsulation needed.
+					 */
+					if (hdr_udp && data && !addr.Outbound /** Inbound UDP */
+						&& (ntohs(hdr_udp->SrcPort) & (uint16_t)(0xFF00)) == W2E_SERVER_PORT_HB) /** With marker */
+					{
+						w2e_dbg_printf("DEcap Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.decap++;
 
 						/**
 						 * Decrypt payload.
 						 */
-						len_send = w2e_crypto_dec_pkt_ipv4(&(pkt[0][W2E_PREAMBLE_SIZE]), pkt[1], len_recv - W2E_PREAMBLE_SIZE);
+						len_send = w2e_crypto__dec_pkt_ipv4(
+							&(pkt[0][W2E_PREAMBLE_SIZE]),
+							pkt[1],
+							len_recv - W2E_PREAMBLE_SIZE,
+							&crypto_handle);
+
+						/**
+						 * Validate.
+						 */
+						if (!w2e_common__validate_dec(pkt[1]))
+						{
+							w2e_print_error("Validation: Malformed packet (possibly wrong key)! Drop\n");
+							w2e_ctrs.err_rx++;
+							continue;
+						}
+
+						/**
+						 * TCP MSS set (SACK packets) to prevent fragmentation.
+						 */
+						if ((hdr_pre_ip->Protocol == 0x06) /** TCP */
+							&& (*(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4 + 13) == 0x12)) /** SACK packet */
+						{
+							if (__w2c_client__tcp_set_mss(
+								(PWINDIVERT_TCPHDR)(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4),
+								W2E_TCP_MSS) != 0)
+							{
+								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_ctrs.err_rx++;
+								continue;
+							}
+						}
 
 						/**
 						 * Substitute local IP.
 						 */
-						hdr_pre_ip->DstAddr = htonl(0xc0a832f5); // My src address
-						//hdr_pre_ip->DstAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
+						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_client;
 
 						/**
 						 * Recalculate CRCs (all).
@@ -347,20 +415,39 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						__w2e_client__pkt_send(w_filter, pkt[1], len_send, NULL, &addr);
 						continue;
 					}
+					/**
+					 * Encapsulation needed.
+					 */
 					else if (addr.Outbound) /* Any outbound traffic */
-					{ /* Encapsulation needed */
+					{
+						w2e_dbg_printf("ENCAP Got %s packet, len=%d\n", addr.Outbound ? "outbound" : "inbound", len_recv);
 						w2e_ctrs.encap++;
 
 						w2e_dbg_dump(len_recv, pkt[0]);
-						
+
+						/**
+						 * TCP MSS set (SYN packets) to prevent fragmentation.
+						 */
+						if (hdr_tcp /** TCP */
+							&& hdr_tcp->Syn && !hdr_tcp->Ack) /** SYN packet */
+						{
+							if (__w2c_client__tcp_set_mss(hdr_tcp, W2E_TCP_MSS) != 0)
+							{
+								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_ctrs.err_rx++;
+								continue;
+							}
+						}
+
 						/**
 						 * Encrypt payload.
 						 */
-						len_send = w2e_crypto_enc(
+						len_send = w2e_crypto__enc(
 							pkt[0],
 							&(pkt[1][W2E_PREAMBLE_SIZE]),
 							len_recv,
-							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE);
+							W2E_MAX_PACKET_SIZE - W2E_PREAMBLE_SIZE,
+							&crypto_handle);
 
 						/**
 						 * Add incapsulation header.
@@ -369,11 +456,12 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/** IPv4 header */
 						memcpy(pkt[1], w2e_template_iph, sizeof(w2e_template_iph));
 						/** UDP header */
-						memcpy(&(pkt[1][sizeof(w2e_template_iph)]), w2e_template_udph, sizeof(w2e_template_udph));
+						memset(&(pkt[1][sizeof(w2e_template_iph)]), 0, 8);
 
 						/** New UDP header */
-						hdr_pre_udp->SrcPort = w2e_cfg_client.port_client;
-						hdr_pre_udp->Length = htons(len_send + sizeof(w2e_template_udph));
+						hdr_pre_udp->SrcPort = htons(W2E_SERVER_PORT_HB | w2e_cfg_client.id); /** Same port for now //@TODO test */
+						hdr_pre_udp->DstPort = htons(W2E_SERVER_PORT_HB | w2e_cfg_client.id);
+						hdr_pre_udp->Length = htons(len_send + 8);
 
 
 						len_send += W2E_PREAMBLE_SIZE;
@@ -382,19 +470,18 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						/** New IPv4 header */
 						hdr_pre_ip->Length = htons((u_short)(len_send));
 
-						/** Configured in INI address or the same address from plain */
-						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client ? w2e_cfg_client.ip_client : hdr_ip->SrcAddr;
+						/** Configured in INI address */
+						hdr_pre_ip->SrcAddr = w2e_cfg_client.ip_client;
 						/** Remote w2e server address */
 						hdr_pre_ip->DstAddr = w2e_cfg_client.ip_server;
-
-						//hdr_pre_ip->SrcAddr = htonl(/*0xc0a832f5*/ 0x0A00A084); // My src address
-						//hdr_pre_ip->SrcAddr = htonl(0xc0a832f5); // My src address
 
 						/**
 						 * Recalculate CRCs (IPv4 and UDP).
 						 */
 						WinDivertHelperCalcChecksums(pkt[1], len_send, &addr,
-							(UINT64)(WINDIVERT_HELPER_NO_TCP_CHECKSUM | WINDIVERT_HELPER_NO_ICMP_CHECKSUM | WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
+							(UINT64)(WINDIVERT_HELPER_NO_TCP_CHECKSUM
+								| WINDIVERT_HELPER_NO_ICMP_CHECKSUM
+								| WINDIVERT_HELPER_NO_ICMPV6_CHECKSUM));
 
 						/**
 						 * Send modified packet.
@@ -452,6 +539,12 @@ int main(int argc, char* argv[])
 	const char ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char* ini_fname = ini_default;
 
+
+	/**
+	 * Print art.
+	 */
+	printf("%s\n\n", w2e_art__combined);
+
 	w2e_log_printf("Client is starting...\n");
 
 	/**
@@ -482,7 +575,7 @@ int main(int argc, char* argv[])
 	/**
 	 * Crypto lib init.
 	 */
-	if (w2e_crypto_init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN) != 0)
+	if (w2e_crypto__init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN, &crypto_handle) != 0)
 	{
 		w2e_print_error("Crypto init error\n");
 		return 1;
@@ -498,15 +591,16 @@ int main(int argc, char* argv[])
 		" !loopback"
 		" and ip"
 		//" and (tcp or udp)"
-		//" and (ip.SrcAddr == 35.226.111.211 or ip.DstAddr == 35.226.111.211)"
 		" and ("
-			//" tcp.DstPort == 443 or tcp.DstPort == 80"
-			" ((tcp.DstPort == 443 or tcp.DstPort == 80) and ip.DstAddr != 35.226.111.211)"
+			//"udp.SrcPort == 5256"
+			"(udp.SrcPort >= 43520 and udp.SrcPort <= 43775)"
+			" or tcp.DstPort == 443"
+			" or tcp.DstPort == 80"
+			/////////" ((tcp.DstPort == 443 or tcp.DstPort == 80) and ip.DstAddr != 35.226.111.211)"
 			" or udp.DstPort == 53"
 			" or udp.DstPort == 443" /* QUIC */
-			" or udp.DstPort == 1900" /* QUIC */
+			//" or udp.DstPort == 1900" /* SSDP */
 			//" udp.DstPort == 53"
-			" or udp.SrcPort == 5256"
 		")"
 		//" and (udp.DstPort == 53 or udp.SrcPort == 53)"
 		//" and (tcp.SrcPort == 80 or tcp.DstPort == 80 or udp.SrcPort == 53 or udp.DstPort == 53 or icmp)"
@@ -522,11 +616,6 @@ int main(int argc, char* argv[])
 
 	__w2c_client__main_loop(w_filter);
 
-
-	/**
-	 * Crypto lib deinit.
-	 */
-	w2e_crypto_deinit();
 
 	return 0;
 }

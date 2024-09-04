@@ -1,10 +1,12 @@
 # W2E
 
+![Logo](./misc/w2e_client_logo.png)
+
 **Window to Europe** — secured tunneling solution.
 
 ## Scheme
 
-[![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme.svg)
+[![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/master/misc/w2e_scheme.svg)
 
 
 ## Args
@@ -35,36 +37,36 @@ cmake --build build
 
 ### Scheme
 
-[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/main/misc/w2e_scheme_server.svg)
+[![w2e_scheme_server.svg](./misc/w2e_scheme_server.svg)](https://app.diagrams.net/#H6uoMycop/W2E/master/misc/w2e_scheme_server.svg)
 
 ### Configuration file
 
 <details>
-	<summary>Server config...</summary>
+<summary>Server config...</summary>
 
-	#### Section **[server]**
-	
-	##### dns= *{none, ip}*
-	
-	> Open DNS server address to substitute in DNS queries (may be empty = don't change)
-	
-	##### ip= *ip*
-	
-	> Server's IP address
-	
-	#### Section **[client]**
-	
-	> May be multiple sections. Describes clients.
-	
-	##### id= *number in range [0, 255]*
-	
-	> Client's ID in range [0-255].
-	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
-	> Value must be unique in configuration file.
-	
-	##### key= *string of key length*
-	
-	> Client's AES key.
+#### Section **[server]**
+
+##### dns= *{none, ip}*
+
+> Open DNS server address to substitute in DNS queries (may be empty = don't change)
+
+##### ip= *ip*
+
+> Server's IP address
+
+#### Section **[client]**
+
+> May be multiple sections. Describes clients.
+
+##### id= *number in range [0, 255]*
+
+> Client's ID in range [0-255].
+> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
+> Value must be unique in configuration file.
+
+##### key= *string of key length*
+
+> Client's AES key.
 
 </details>
 
@@ -84,33 +86,32 @@ cmake.exe --build ./build --config Release
 ### Configuration file
 
 <details>
-	<summary>Client config...</summary>
+<summary>Client config...</summary>
 
-	#### Section **[server]**
-	
-	##### ip= *ip*
-	
-	> Server's IP address.
-	
-	#### Section **[client]**
-	
-	> May be multiple sections. Describes clients.
-	
-	##### id= *number in range [0, 255]*
-	
-	> Client's ID in range [0-255].
-	> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
-	> Value must be unique in configuration file.
-	
-	##### ip= *{none, ip}*
-	
-	> IP address to use as Source address of encapsulated packets.
-	> If set empty -- will be used the same Source IP from plain packets.
-	
-	##### key= *string of key length*
-	
-	> Client's AES key.
-	
+#### Section **[server]**
+
+##### ip= *ip*
+
+> Server's IP address.
+
+#### Section **[client]**
+
+> May be multiple sections. Describes clients.
+
+##### id= *number in range [0, 255]*
+
+> Client's ID in range [0-255].
+> Corresponding client's source port is calculated as \<prefix\>|\<id\>.
+> Value must be unique in configuration file.
+
+##### ip= *ip*
+
+> IP address to use as Source address of encapsulated packets.
+
+##### key= *string of key length*
+
+> Client's AES key.
+
 </details>
 
 ## Related repos
@@ -148,14 +149,58 @@ iptables -t raw -A PREROUTING -p udp --sport 1900 -i ens4 -j NFQUEUE --queue-num
 iptables -t raw -A PREROUTING -p udp --sport 443 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p tcp --sport 443 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-iptables -t raw -A PREROUTING -p udp --dport 5256 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p udp --sport 53 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
+iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
+#iptables -t raw -A PREROUTING -p udp --dport 5256 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 ```
 
-- Enlarge MTU
+- Enlarge MTU (linux server)
 
 ```
 ip l s dev ens4 mtu 1500
 ```
+
+- Turn offloads off (linux server)
+
+```
+ethtool -K ens4 tx off sg off tso off gro off rx-gro-hw off
+```
+
+- Disable IPv6 (linux server)
+
+```
+sysctl -w net.ipv6.conf.all.disable_ipv6=1
+sysctl -w net.ipv6.conf.default.disable_ipv6=1
+```
+
+- Decrease MTU (Windows client)
+
+```
+netsh interface ipv4 show subinterfaces
+```
+
+>    MTU  Состояние определения носителя   Вх. байт  Исх. байт  Интерфейс
+>
+> ------  ---------------  ---------  ---------  -------------
+>
+> 4294967295                1          0     467389  Loopback Pseudo-Interface 1
+>
+>   1500                1  30151331950  479444648  Беспроводная сеть
+>
+>   1500                5          0          0  Подключение по локальной сети* 1
+>
+>   1500                1          0     363096  Ethernet 2
+>
+>   1500                5          0          0  Подключение по локальной сети* 2
+
+```
+netsh interface ipv4 set subinterface <INTERFACE_NAME> mtu=1440 store=active
+```
+
+> store        - одно из следующих значений:
+>
+>               active: настройка действует только до следующей перезагрузки.
+>
+>           persistent: постоянная настройка.
 
 

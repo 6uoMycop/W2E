@@ -196,9 +196,9 @@ static inline void __w2e_conntrack__create_tuple(
 
 	tuple->proto = proto;
 
-	w2e_dbg_printf(
-		"Create tuple: 0x%08X 0x%08X 0x%04X 0x%04X 0x%02X\n",
-		tuple->addr[0], tuple->addr[1], tuple->port[0], tuple->port[1], tuple->proto);
+	//w2e_dbg_printf(
+	//	"Create tuple: 0x%08X 0x%08X 0x%04X 0x%04X 0x%02X\n",
+	//	tuple->addr[0], tuple->addr[1], tuple->port[0], tuple->port[1], tuple->proto);
 }
 
 
@@ -239,7 +239,7 @@ static inline void __w2e_conntrack__insert(w2e_ct_entry_t* entry)
 	list_add_tail(&(entry->list), &(bucket->list));
 	pthread_mutex_unlock(&(bucket->mutex));
 
-	w2e_dbg_printf("Inserting to bucket %d\n", idx);
+	//w2e_dbg_printf("Inserting to bucket %d\n", idx);
 }
 
 
