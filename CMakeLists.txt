@@ -1,6 +1,6 @@
 ﻿# CMakeList.txt: файл проекта CMake верхнего уровня
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.11)
 
 # Включение горячей перезагрузки для компиляторов MSVC, если поддерживается.
 if (POLICY CMP0141)
@@ -43,15 +43,14 @@ if (UNIX)
 endif (UNIX)
 
 
-#if (MSVC)
-## CMocka download
-#include(FetchCMocka.cmake)
-#endif ()
-
-
 # CONFIG
 include(DefineOptions.cmake)
 
+if (MSVC)
+if (UNIT_TESTING)
+	add_subdirectory ("deps/cmocka")  # AES implementation (Windows & Linux)
+endif (UNIT_TESTING)
+endif (MSVC)
 
 # Подпроекты
 
@@ -67,4 +66,5 @@ if (UNIX)
 	add_subdirectory ("w2e_conntrack")  # Conntrack (Linux)
 	add_subdirectory ("w2e_server")  # Server application (Linux)
 endif(UNIX)
+
 
