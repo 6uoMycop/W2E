@@ -21,15 +21,15 @@ from time import time
 #     28 - Timeout
 #     35 - Connection reset
 #     56 - Recv failure: Connection was reset
-def test(url):
-    cmd = 'curl -s --connect-timeout 2 --max-time 2 --output NUL '
-    #print('Try:', url)
+def test(url, timeout=2, verbose=False):
+    cmd = 'curl -s --connect-timeout ' + str(timeout) + ' --max-time ' + str(timeout) + ' --output NUL '
 
     proc = Popen((cmd + url).split())
     proc.wait()
     ret = proc.returncode
 
-    #print('Ret:', ret, '\t', url)
+    if verbose:
+        print('Ret:', ret, '\t', url)
 
     return ret
 
@@ -62,31 +62,35 @@ if __name__ == '__main__':
                 r_dns.append(url)
             elif ret == 2:  # Syntax -- wtf
                 print('SYNTAX ERROR')
-                break
+                exit(1)
             else:  # Unreachable
                 r_err.append(url)
 
             # Print time
             print('URLs checked:', ctr_all, '\tTime elapsed:', round(time() - t_start, 1), 's', end='\r')
 
+    ctr_dns = len(r_dns)
+    ctr_err = len(r_err)
+
     # Present results
     print()
-    print('Total links tested: ', ctr_all)
-    print('Tests passed:       ', ctr_ok)
-    print('DNS errors:         ', len(r_dns))
-    print('Connection errors:  ', len(r_err))
+    print('Total links tested:   ', ctr_all)
+    print('    Tests passed:     ', ctr_ok)
+    print('    Errors:           ', ctr_dns + ctr_err)
+    print('        DNS:          ', ctr_dns)
+    print('        Connection:   ', ctr_err)
     print()
 
     if len(r_dns):
         print()
-        print('DNS error links:', len(r_dns))
+        print('DNS error links:', ctr_dns)
         for e in r_dns:
             print(e, end='')
         print()
 
     if len(r_err):
         print()
-        print('Connection error links:', len(r_err))
+        print('Connection error links:', ctr_err)
         for e in r_err:
             print(e, end='')
         print()
