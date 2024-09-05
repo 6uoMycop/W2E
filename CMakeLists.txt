@@ -47,9 +47,11 @@ endif (UNIX)
 include(DefineOptions.cmake)
 
 if (MSVC)
-if (UNIT_TESTING)
-	add_subdirectory ("deps/cmocka")  # AES implementation (Windows & Linux)
-endif (UNIT_TESTING)
+if (W2E_UNIT_TESTING)
+	add_subdirectory ("deps/cmocka")  # CMocka (Windows & Linux) //@TODO Linux
+	#file(TO_NATIVE_PATH "${cmocka-library_BINARY_DIR}" W2E_CMOCKA_L)
+	#link_directories("${W2E_CMOCKA_L}")
+endif (W2E_UNIT_TESTING)
 endif (MSVC)
 
 # Подпроекты

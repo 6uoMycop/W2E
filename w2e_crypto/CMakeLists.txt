@@ -6,9 +6,9 @@ add_subdirectory(
 # Тестирование
 
 if (MSVC)
-if (UNIT_TESTING)
+if (W2E_UNIT_TESTING)
 	add_subdirectory(
 		"tests"
 	)
-endif (UNIT_TESTING)
+endif (W2E_UNIT_TESTING)
 endif (MSVC)
