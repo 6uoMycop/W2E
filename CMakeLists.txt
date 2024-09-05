@@ -49,8 +49,6 @@ include(DefineOptions.cmake)
 if (MSVC)
 if (W2E_UNIT_TESTING)
 	add_subdirectory ("deps/cmocka")  # CMocka (Windows & Linux) //@TODO Linux
-	#file(TO_NATIVE_PATH "${cmocka-library_BINARY_DIR}" W2E_CMOCKA_L)
-	#link_directories("${W2E_CMOCKA_L}")
 endif (W2E_UNIT_TESTING)
 endif (MSVC)
 

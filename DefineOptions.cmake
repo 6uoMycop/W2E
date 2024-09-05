@@ -16,7 +16,7 @@ add_compile_definitions(W2E_CT_SESSION_TTL=100)
 
 
 # Unit tests enable
-set(W2E_UNIT_TESTING ON CACHE BOOL "W2E Unit tests enable")
+#set(W2E_UNIT_TESTING OFF CACHE BOOL "W2E Unit tests enable")
 
 # CMocka
 set(WITH_EXAMPLES OFF CACHE BOOL "CMocka: Build examples" FORCE)
