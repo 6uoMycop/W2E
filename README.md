@@ -22,6 +22,11 @@ Project is in MVP status now, being updated and should be considered as unstable
 - Server contains error: some websites are not aaccessible
 
 
+## Demo
+
+![Demo](./misc/w2e_demo.gif)
+
+
 ## Scheme
 
 [![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/master/misc/w2e_scheme.svg)
