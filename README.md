@@ -4,6 +4,29 @@
 
 **Window to Europe** — secured tunneling solution.
 
+
+## Features
+
+- Encapsulation to IP/UDP, no additional fields
+- AES encryption
+- DNS proxy
+- Multiple clients support using connection tracker
+
+
+## Limitations
+
+Project is in MVP status now, being updated and should be considered as unstable. So:
+
+- Multithreading not implemented
+- Connection tracker has minimal implementation
+- Server contains error: some websites are not aaccessible
+
+
+## Demo
+
+![Demo](./misc/w2e_demo.gif)
+
+
 ## Scheme
 
 [![w2e_scheme.svg](./misc/w2e_scheme.svg)](https://app.diagrams.net/#H6uoMycop/W2E/master/misc/w2e_scheme.svg)
@@ -25,7 +48,7 @@ If none provided, program will try to use `default.config`.
 **Dependencies:**
 
 ```
-apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-queue1 iptables #tcpdump
+apt install -y build-essential git cmake libnetfilter-queue-dev libnetfilter-queue1 iptables
 ```
 
 ### Build
@@ -126,6 +149,8 @@ cmake.exe --build ./build --config Release
 
 [linux](https://github.com/torvalds/linux)
 
+[freebsd](https://github.com/freebsd/freebsd-src)
+
 ## Notes
 
 - You can stop `WinDivert` service on client using
@@ -151,7 +176,6 @@ iptables -t raw -A PREROUTING -p tcp --sport 443 -i ens4 -j NFQUEUE --queue-num 
 iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p udp --sport 53 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-#iptables -t raw -A PREROUTING -p udp --dport 5256 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
 ```
 
 - Enlarge MTU (linux server)
@@ -174,6 +198,9 @@ sysctl -w net.ipv6.conf.default.disable_ipv6=1
 ```
 
 - Decrease MTU (Windows client)
+
+<details>
+<summary>Windows decrease MTU...</summary>
 
 ```
 netsh interface ipv4 show subinterfaces
@@ -203,4 +230,5 @@ netsh interface ipv4 set subinterface <INTERFACE_NAME> mtu=1440 store=active
 >
 >           persistent: постоянная настройка.
 
+</details>
 
