@@ -19,7 +19,7 @@ Project is in MVP status now, being updated and should be considered as unstable
 
 - Multithreading not implemented
 - Connection tracker has minimal implementation
-- Server contains error: some websites are not aaccessible
+- Server contains error: some websites are not accessible
 
 
 ## Demo
