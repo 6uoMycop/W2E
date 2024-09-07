@@ -10,9 +10,12 @@
 
 import sys
 import signal
+import os
 from subprocess import Popen
-from time import time
+from time import time, strftime, localtime
 
+# Test file
+filename = None
 
 # Results
 ctr_all = 0   # Total number of tested links
@@ -20,39 +23,67 @@ ctr_ok  = 0   # Number of passed tests
 r_dns   = []  # DNS error sites
 r_err   = []  # Unreachable sites
 
+# Test start localtime
+time_start_local = None
+
 
 # Present results
 def results():
+    # Results filename
+    results_fname = strftime('%y%m%d_%H%M%S_', time_start_local) + filename.split('\\')[-1].split('.')[0] + '.txt'
+
     ctr_dns = len(r_dns)
     ctr_err = len(r_err)
 
-    print()
-    print('Total links tested:   ', ctr_all)
-    print('    Tests passed:     ', ctr_ok)
-    print('    Errors:           ', ctr_dns + ctr_err)
-    print('        DNS:          ', ctr_dns)
-    print('        Connection:   ', ctr_err)
-    print()
+    os.write(sys.stdout.fileno(), b'\nTotal links tested:   ') 
+    os.write(sys.stdout.fileno(), bytes(str(ctr_all), 'utf-8'))
+    os.write(sys.stdout.fileno(), b'\n    Tests passed:     ') 
+    os.write(sys.stdout.fileno(), bytes(str(ctr_ok), 'utf-8'))
+    os.write(sys.stdout.fileno(), b'\n    Errors:           ') 
+    os.write(sys.stdout.fileno(), bytes(str(ctr_dns + ctr_err), 'utf-8'))
+    os.write(sys.stdout.fileno(), b'\n        DNS:          ') 
+    os.write(sys.stdout.fileno(), bytes(str(ctr_dns), 'utf-8'))
+    os.write(sys.stdout.fileno(), b'\n        Connection:   ') 
+    os.write(sys.stdout.fileno(), bytes(str(ctr_err), 'utf-8'))
+    os.write(sys.stdout.fileno(), b'\n\nDetailed stats file:')
+    os.write(sys.stdout.fileno(), bytes(results_fname, 'utf-8'))
 
-    if len(r_dns):
-        print()
-        print('DNS error links:', ctr_dns)
-        for e in r_dns:
-            print(e, end='')
-        print()
+    with open(results_fname, mode='w') as f:
+        f.write('TEST START: ')
+        f.write(strftime('%x %X', localtime()))
+        f.write('\nTEST FILE:  ')
+        f.write(filename)
+        f.write('\n')
+        f.write('\nTotal links tested:   ')
+        f.write(str(ctr_all))
+        f.write('\n    Tests passed:     ')
+        f.write(str(ctr_ok))
+        f.write('\n    Errors:           ')
+        f.write(str(ctr_dns + ctr_err))
+        f.write('\n        DNS:          ')
+        f.write(str(ctr_dns))
+        f.write('\n        Connection:   ')
+        f.write(str(ctr_err))
+        f.write('\n')
 
-    if len(r_err):
-        print()
-        print('Connection error links:', ctr_err)
-        for e in r_err:
-            print(e, end='')
-        print()
+        if len(r_dns):
+            f.write('\nDNS error links:')
+            f.write(str(ctr_dns))
+            f.write('\n')
+            for e in r_dns:
+                f.write(e)
+
+        if len(r_err):
+            f.write('\nConnection error links:')
+            f.write(str(ctr_err))
+            f.write('\n')
+            for e in r_err:
+                f.write(e)
 
 
 # SIGINT handler (not to lose results on interrupt)
 def signal_handler(sig, frame):
-    print()
-    print('TEST INTERRUPT')
+    os.write(sys.stdout.fileno(), b'\nTEST INTERRUPT')
 
     # Print results
     results()
@@ -91,6 +122,7 @@ if __name__ == '__main__':
     print('Test file:', filename)
     print('----------')
 
+    time_start_local = localtime()
     t_start = time()
 
     with open(filename, mode='r') as f:
