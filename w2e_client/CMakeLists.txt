@@ -16,6 +16,8 @@ file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 # Copy scripts to be near EXE
 file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/misc/scripts_win/*") # For wildcard COPY
 file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy tests to be near EXE
+file(COPY "${CMAKE_HOME_DIRECTORY}/misc/tests/" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests/")
 # Add resource
 target_sources(w2e_client PRIVATE w2e_client.rc)
 

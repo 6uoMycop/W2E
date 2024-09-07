@@ -107,7 +107,7 @@ def signal_handler(sig, frame):
 #     28 - Timeout
 #     35 - Connection reset
 #     56 - Recv failure: Connection was reset
-def test(url, timeout=2, verbose=False):
+def test(url, timeout=1, verbose=False):
     cmd = 'curl -s --connect-timeout ' + str(timeout) + ' --max-time ' + str(timeout) + ' --output NUL '
 
     proc = Popen((cmd + url).split())
