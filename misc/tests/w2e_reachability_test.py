@@ -19,7 +19,7 @@ filename = None
 
 # Results
 ctr_all = 0   # Total number of tested links
-ctr_ok  = 0   # Number of passed tests
+r_ok    = []  # Passed sites
 r_dns   = []  # DNS error sites
 r_err   = []  # Unreachable sites
 
@@ -32,6 +32,7 @@ def results():
     # Results filename
     results_fname = strftime('%y%m%d_%H%M%S_', time_start_local) + filename.split('\\')[-1].split('.')[0] + '.txt'
 
+    ctr_ok  = len(r_ok)
     ctr_dns = len(r_dns)
     ctr_err = len(r_err)
 
@@ -78,6 +79,13 @@ def results():
             f.write(str(ctr_err))
             f.write('\n')
             for e in r_err:
+                f.write(e)
+
+        if len(r_ok):
+            f.write('\n----------\nPassed links:')
+            f.write(str(ctr_ok))
+            f.write('\n')
+            for e in r_ok:
                 f.write(e)
 
 
@@ -131,7 +139,7 @@ if __name__ == '__main__':
             ret = test(url)
             # Result processing
             if ret == 0:  # OK
-                ctr_ok += 1
+                r_ok.append(url)
             elif ret == 6:  # DNS
                 r_dns.append(url)
             elif ret == 2:  # Syntax -- wtf
