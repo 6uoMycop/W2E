@@ -220,14 +220,14 @@ static BOOL __w2e_client__is_admin()
 
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
 	{
-		w2e_print_error("\n Failed to get Process Token :%d.", GetLastError());
+		w2e_print_error("Failed to get Process Token: %d\n", GetLastError());
 		goto cleanup; /* if Failed, we treat as False */
 	}
 
 
 	if (!GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &dwSize))
 	{
-		w2e_print_error("\nFailed to get Token Information :%d.", GetLastError());
+		w2e_print_error("Failed to get Token Information: %d\n", GetLastError());
 		goto cleanup; /* if Failed, we treat as False */
 	}
 
