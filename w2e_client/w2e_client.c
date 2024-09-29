@@ -17,19 +17,19 @@ static HANDLE g_filters[W2E_MAX_FILTERS];
 static int g_filter_num = 0;
 
 /** Crypto lib handle */
-w2e_crypto__handle_t crypto_handle = { 0 };
+static w2e_crypto__handle_t crypto_handle = { 0 };
 
 static volatile uint8_t client_stop = 0;
 
 /**
  * Global counters.
  */
-w2e_ctrs_t w2e_ctrs = { 0 };
+static w2e_ctrs_t w2e_ctrs = { 0 };
 
 /**
  * Config.
  */
-w2e_cfg_client_t w2e_cfg_client = { 0 };
+static w2e_cfg_client_t w2e_cfg_client = { 0 };
 
 
 /**
@@ -204,8 +204,42 @@ static void __w2c_client__sigint_handler(int sig)
 	client_stop = 1;
 	__w2e_client__deinit_all(g_filters, g_filter_num);
 	w2e_crypto__deinit(&crypto_handle);
-	printf("Client stop\n");
 	exit(EXIT_SUCCESS);
+}
+
+
+/**
+ * Check if running as Administrator.
+ */
+static BOOL __w2e_client__is_admin()
+{
+	BOOL fIsElevated = FALSE;
+	HANDLE hToken = NULL;
+	TOKEN_ELEVATION elevation;
+	DWORD dwSize;
+
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
+	{
+		w2e_print_error("\n Failed to get Process Token :%d.", GetLastError());
+		goto cleanup; /* if Failed, we treat as False */
+	}
+
+
+	if (!GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &dwSize))
+	{
+		w2e_print_error("\nFailed to get Token Information :%d.", GetLastError());
+		goto cleanup; /* if Failed, we treat as False */
+	}
+
+	fIsElevated = elevation.TokenIsElevated;
+
+cleanup:
+	if (hToken)
+	{
+		CloseHandle(hToken);
+		hToken = NULL;
+	}
+	return fIsElevated;
 }
 
 
@@ -541,21 +575,30 @@ int main(int argc, char* argv[])
 
 
 	/**
+	 * Resize console window.
+	 */
+	HWND wh = GetConsoleWindow();
+	if (!MoveWindow(wh, 0, 0, 1000, 650, TRUE))
+	{
+		w2e_print_error("Warning: Unable to resize window\n");
+	}
+
+	/**
 	 * Print art.
 	 */
 	printf("%s\n\n", w2e_art__combined);
 
-	w2e_log_printf("Client is starting...\n");
+	if (!__w2e_client__is_admin())
+	{
+		w2e_print_error("You need to run W2E Client as Administrator. Press Enter to terminate.\n");
+		(void)getchar();
+		exit(1);
+	}
 
 	/**
 	 * SIGINT handler.
 	 */
 	signal(SIGINT, __w2c_client__sigint_handler);
-
-	/**
-	 * shmm create.
-	 * @TODO
-	 */
 
 	
 	/**

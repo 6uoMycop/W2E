@@ -38,8 +38,6 @@ int w2e_crypto__init(const u8* key, size_t len, w2e_crypto__handle_t* handle)
 
 void w2e_crypto__deinit(w2e_crypto__handle_t* handle)
 {
-	w2e_log_printf("Crypto deinit...\n");
-
 	aes_encrypt_deinit(handle->enc);
 	aes_encrypt_deinit(handle->dec);
 	handle->enc = NULL;

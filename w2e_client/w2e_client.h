@@ -10,7 +10,6 @@
 #ifndef __W2E_CLIENT_H
 #define __W2E_CLIENT_H
 
-
 #include <signal.h>
 #include <ws2tcpip.h>
 
