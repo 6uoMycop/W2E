@@ -763,13 +763,13 @@ int main(int argc, char** argv)
 	{
 		/** Socket */
 		nfqueue_ctx[i].sock_tx = __w2e_server__sock_init();
-		if (sock_tx[i] == -1)
+		if (nfqueue_ctx[i].sock_tx == -1)
 		{
 			w2e_print_error("Error create socket\n");
 
 			for (int j = 0; j < i; j++)
 			{
-				close(sock_tx[j]);
+				close(nfqueue_ctx[j].sock_tx);
 			}
 			ret = 1;
 			goto exit_crypto_deinit;
@@ -823,7 +823,7 @@ exit_close_sockets:
 	w2e_log_printf("Deinitialize sockets\n");
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		close(sock_tx[i]);
+		close(nfqueue_ctx[i].sock_tx);
 	}
 
 exit_crypto_deinit:
