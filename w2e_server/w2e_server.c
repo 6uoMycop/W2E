@@ -427,6 +427,7 @@ static void __w2e_server__deinit()
 	 */
 	server_stop = 1;
 
+#if 0 // already deinitializes in main
 	/**
 	 * Conntrack deinit.
 	 */
@@ -466,6 +467,7 @@ static void __w2e_server__deinit()
 	{
 		close(nfqueue_ctx[i].sock_tx);
 	}
+#endif /* 0 */
 }
 
 void __w2e_server__sig_handler(int n)
@@ -578,7 +580,7 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 
 	ctx->id = id;
 	w2e_log_printf("Binding the program to queue %d (total %d)\n", ctx->id, W2E_SERVER_NFQUEUE_NUM);
-	ctx->qh = nfq_create_queue(ctx->h, 0, &__w2e_server__cb, ctx);
+	ctx->qh = nfq_create_queue(ctx->h, ctx->id, &__w2e_server__cb, ctx);
 	if (!ctx->qh)
 	{
 		w2e_print_error("Error during nfq_create_queue()\n");
@@ -699,6 +701,8 @@ static int __w2e_server__iptables_init()
 		w2e_print_error("rule create error\n");
 		return 1;
 	}
+
+	return 0;
 }
 
 
