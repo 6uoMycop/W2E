@@ -43,6 +43,12 @@
 #define W2E_MAX_CLIENTS 255
 #endif // !W2E_MAX_CLIENTS
 
+#ifndef W2E_SERVER_NFQUEUE_NUM
+ /**
+  * Number of NFQUEUEs (and threads - 1 per queue) on server.
+  */
+#define W2E_SERVER_NFQUEUE_NUM 1
+#endif // !W2E_SERVER_NFQUEUE_NUM
 
 /**
  * Client context.
@@ -58,6 +64,25 @@ typedef struct {
 	uint16_t	port_client;		/** Server visible client's port of encapsulated UDP packets (in network byte order) */
 	uint32_t	ip_dns_last;		/** Last client DNS address in network byte order */
 } w2e_cfg_client_ctx_t;
+
+
+/**
+ * NFUQEUE context. Also passed to __w2e_server__cb() as last arg.
+ */
+typedef struct {
+	/**
+	 * Raw socket.
+	 */
+	int						sock_tx;
+
+	/**
+	 * NFQUEUE.
+	 */
+	int						id;			/** NFQUEUE id */
+	struct nfq_handle*		h;
+	struct nfq_q_handle*	qh;
+	int						fd;
+} w2e_nfqueue_ctx;
 
 
 /**

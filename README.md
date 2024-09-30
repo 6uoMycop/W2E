@@ -170,12 +170,12 @@ you should elevate to Administrator mode.
 - Example iptables rule to pass packets to `NFQUEUE` 0
 
 ```
-iptables -t raw -A PREROUTING -p udp --sport 1900 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-iptables -t raw -A PREROUTING -p udp --sport 443 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-iptables -t raw -A PREROUTING -p tcp --sport 443 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-iptables -t raw -A PREROUTING -p tcp --sport 80 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-iptables -t raw -A PREROUTING -p udp --sport 53 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
-iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass
+iptables -t raw -A PREROUTING -p udp --sport 1900        -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:1
+iptables -t raw -A PREROUTING -p udp --sport 443         -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:1
+iptables -t raw -A PREROUTING -p tcp --sport 443         -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:1
+iptables -t raw -A PREROUTING -p tcp --sport 80          -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:1
+iptables -t raw -A PREROUTING -p udp --sport 53          -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:1
+iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:1
 ```
 
 - Enlarge MTU (linux server)

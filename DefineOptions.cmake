@@ -11,5 +11,9 @@ add_compile_definitions(W2E_VERBOSE)
 add_compile_definitions(W2E_INI_DEFAULT_NAME="default.config")
 add_compile_definitions(W2E_MAX_CLIENTS=10)
 
-#add_compile_definitions(W2E_CT_SESSION_TTL=600)
-add_compile_definitions(W2E_CT_SESSION_TTL=100)
+add_compile_definitions(W2E_CT_SESSION_TTL=600)
+#add_compile_definitions(W2E_CT_SESSION_TTL=100)
+
+# Number of NFQUEUEs (and threads - 1 per queue) on server. IN RANGE [1,99]
+add_compile_definitions(W2E_SERVER_NFQUEUE_NUM=2)
+
