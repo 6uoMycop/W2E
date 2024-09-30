@@ -652,7 +652,7 @@ static int __w2e_server__iptables_init()
 #error "W2E_SERVER_NFQUEUE_NUM must be at most 2 digits long"
 #endif // W2E_SERVER_NFQUEUE_NUM > 99
 
-	itoa(W2E_SERVER_NFQUEUE_NUM, &(balance[2]), 10);
+	snprintf(&(balance[2]), 3, "%d", W2E_SERVER_NFQUEUE_NUM - 1);
 
 	w2e_dbg_printf("balance: \'%s\'\n", balance);
 
