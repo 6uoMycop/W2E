@@ -109,7 +109,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 /**
  * Packet processing point.
  */
-static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg, struct nfq_data* nfa, w2e_nfqueue_ctx* ctx)
+static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
 	static unsigned char			pkt1[W2E_MAX_PACKET_SIZE] = { 0 }; /** Send buffer. */
 	u_int32_t						id; /** NFQUEUE packet ID */
@@ -122,6 +122,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_port = 0, .sin_addr = { 0 } };
 	uint16_t						id_client = 0;
 	w2e_ct_entry_t					*ct = NULL;
+	w2e_nfqueue_ctx* ctx = (w2e_nfqueue_ctx*)data;
 
 	(void)nfmsg;
 
@@ -510,6 +511,7 @@ static void* __w2e_server__worker_main(void* data)
 static int __w2e_server__sock_init()
 {
 	int val;
+	int s = -1;
 
 	/** Create socket. */
 	s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -613,7 +615,7 @@ static int __w2e_server__iptables_add(
 )
 {
 	int stat;
-	char* args[] = {
+	char* const args[] = {
 		"iptables", "-t", "raw", "-A", "PREROUTING",
 		"-p", proto, port_dir, port, "-i", iface,
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", balance, NULL };
@@ -760,7 +762,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
 		/** Socket */
-		sock_tx[i] = __w2e_server__sock_init();
+		nfqueue_ctx[i].sock_tx = __w2e_server__sock_init();
 		if (sock_tx[i] == -1)
 		{
 			w2e_print_error("Error create socket\n");
@@ -777,8 +779,7 @@ int main(int argc, char** argv)
 	/** Create NFQUEUEs */
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		nfqueue_ctx[i].id = i;
-		if (__w2e_server__nfqueue_init())
+		if (__w2e_server__nfqueue_init(&(nfqueue_ctx[i]), i))
 		{
 			w2e_print_error("Error create NFQUEUE\n");
 
@@ -811,11 +812,11 @@ int main(int argc, char** argv)
 	 * DEINITIALIZATION.
 	 ***************************************************************/
 
-exit_nfqueue_deinit:
+/*exit_nfqueue_deinit:*/
 	w2e_log_printf("Deinitialize NFQUEUES\n");
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		__w2e_server__nfqueue_deinit(&(nfqueue_ctx[i]))
+		__w2e_server__nfqueue_deinit(&(nfqueue_ctx[i]));
 	}
 
 exit_close_sockets:
