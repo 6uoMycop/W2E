@@ -600,6 +600,7 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 	}
 
 	ctx->fd = nfq_fd(ctx->h);
+	return 0;
 }
 
 
@@ -704,7 +705,6 @@ static int __w2e_server__iptables_init()
 int main(int argc, char** argv)
 {
 	int			ret = 0;
-	int			status;
 	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char	*ini_fname = ini_default;
 
@@ -795,7 +795,7 @@ int main(int argc, char** argv)
 		nfqueue_ctx[i].sock_tx = __w2e_server__sock_init();
 		if (nfqueue_ctx[i].sock_tx == -1)
 		{
-			w2e_print_error("Error create socket\n");
+			w2e_print_error("Error create socket %d\n", i);
 
 			for (int j = 0; j < i; j++)
 			{
@@ -809,9 +809,9 @@ int main(int argc, char** argv)
 	/** Create NFQUEUEs */
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		if (__w2e_server__nfqueue_init(&(nfqueue_ctx[i]), i))
+		if (__w2e_server__nfqueue_init(&(nfqueue_ctx[i]), i) != 0)
 		{
-			w2e_print_error("Error create NFQUEUE\n");
+			w2e_print_error("Error create NFQUEUE %d\n", i);
 
 			for (int j = 0; j < i; j++)
 			{
@@ -842,7 +842,7 @@ int main(int argc, char** argv)
 	 */
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		pthread_join(nfqueue_workers[i], &status);
+		pthread_join(nfqueue_workers[i], NULL);
 	}
 
 
