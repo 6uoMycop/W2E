@@ -604,6 +604,33 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 
 
 /**
+ * Delete all iptables rules.
+ */
+static int __w2e_server__iptables_flush()
+{
+	int stat;
+	char* const args[] = { "iptables", "-t", "raw", "-F", NULL };
+
+	int pid = fork();
+
+	if (pid == -1)
+	{
+		w2e_print_error("fork error\n");
+		return 1;
+	}
+	else if (pid == 0)
+	{
+		execvp("iptables", args);
+		w2e_print_error("exec error\n"); /** exec never returns */
+		exit(1);
+	}
+
+	waitpid(pid, &stat, 0);
+	w2e_dbg_printf("return %d\n", stat);
+	return stat;
+}
+
+/**
  * Add iptables rule.
  */
 static int __w2e_server__iptables_add(
@@ -656,11 +683,13 @@ static int __w2e_server__iptables_init()
 
 	w2e_dbg_printf("balance: \'%s\'\n", balance);
 
-	/** HTTPS: iptables -t raw -A PREROUTING -p tcp --sport 443         -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:x */
-	/** HTTP:  iptables -t raw -A PREROUTING -p tcp --sport 80          -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:x */
-	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:x */
-	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-num 0 --queue-bypass --queue-balance 0:x */
-	if (__w2e_server__iptables_add(iface, "tcp", "--sport", "443", balance) != 0
+	/** Flush all, then: */
+	/** HTTPS: iptables -t raw -A PREROUTING -p tcp --sport 443         -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** HTTP:  iptables -t raw -A PREROUTING -p tcp --sport 80          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	if (__w2e_server__iptables_flush()
+		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "443", balance) != 0
 		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "80", balance) != 0
 		|| __w2e_server__iptables_add(iface, "udp", "--sport", "53", balance) != 0
 		|| __w2e_server__iptables_add(iface, "udp", "--dport", "43520:43775", balance) != 0
