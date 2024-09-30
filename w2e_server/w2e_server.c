@@ -19,6 +19,7 @@ static w2e_ctrs_t w2e_ctrs = { 0 };
  * NFQUEUE ctxt.
  */
 static w2e_nfqueue_ctx nfqueue_ctx[W2E_SERVER_NFQUEUE_NUM] = { 0 };
+static pthread_t nfqueue_workers[W2E_SERVER_NFQUEUE_NUM];
 
 /**
  * Workers stop flag.
@@ -375,7 +376,7 @@ send_modified:
 	w2e_dbg_dump(len_send, pkt1);
 
 
-	if (sendto(sock_tx[ctx->id], pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
+	if (sendto(ctx->sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
 	{
 		w2e_ctrs.err_tx++;
 		w2e_print_error("Sendto failed! Length %d. Drop\n", len_send);
@@ -436,7 +437,10 @@ static void __w2e_server__deinit()
 	/**
 	 * NFQUEUE deinit.
 	 */
-	__w2e_server__nfqueue_deinit(h, qh);
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		__w2e_server__nfqueue_deinit(&(nfqueue_ctx[i]));
+	}
 
 	/**
 	 * Crypto lib deinit.
@@ -459,7 +463,7 @@ static void __w2e_server__deinit()
 	 */
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		close(sock_tx[i]);
+		close(nfqueue_ctx[i].sock_tx);
 	}
 }
 
@@ -477,17 +481,17 @@ static void* __w2e_server__worker_main(void* data)
 {
 	int		rv;
 	char	buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
-	(void)data;
+	w2e_nfqueue_ctx* ctx = (w2e_nfqueue_ctx *)data;
 
-	w2e_log_printf("worker main start\n");
+	w2e_log_printf("worker %d start\n", ctx->id);
 
 	while (!server_stop)
 	{
-		rv = recv(fd, buf, sizeof(buf), 0);
+		rv = recv(ctx->fd, buf, sizeof(buf), 0);
 		if (rv >= 0)
 		{
 			//w2e_dbg_printf("pkt received\n");
-			nfq_handle_packet(h, buf, rv); //@TODO
+			nfq_handle_packet(ctx->h, buf, rv); //@TODO
 		}
 		else
 		{
@@ -505,6 +509,8 @@ static void* __w2e_server__worker_main(void* data)
  */
 static int __w2e_server__sock_init()
 {
+	int val;
+
 	/** Create socket. */
 	s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 	if (s < 0)
@@ -542,9 +548,9 @@ static int __w2e_server__sock_init()
 
 
 /**
- * Init NFQUEUE context.
+ * Init NFQUEUE and its context.
  */
-static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx)
+static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 {
 	w2e_log_printf("Opening library handle\n");
 	ctx->h = nfq_open();
@@ -568,9 +574,9 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx)
 		return 1;
 	}
 
-	cb_args.id = 0;
-	w2e_log_printf("Binding this socket to queue '0'\n");
-	ctx->qh = nfq_create_queue(handle, 0, &__w2e_server__cb, &cb_args);
+	ctx->id = id;
+	w2e_log_printf("Binding the program to queue %d (total %d)\n", ctx->id, W2E_SERVER_NFQUEUE_NUM);
+	ctx->qh = nfq_create_queue(ctx->h, 0, &__w2e_server__cb, ctx);
 	if (!ctx->qh)
 	{
 		w2e_print_error("Error during nfq_create_queue()\n");
@@ -638,7 +644,7 @@ static int __w2e_server__iptables_add(
 static int __w2e_server__iptables_init()
 {
 	char balance[5] = "0:";
-	const char iface = "ens4"; /** @TODO get rid of hardcode */
+	const char iface[] = "ens4"; /** @TODO get rid of hardcode */
 
 #if W2E_SERVER_NFQUEUE_NUM > 99
 #error "W2E_SERVER_NFQUEUE_NUM must be at most 2 digits long"
@@ -667,7 +673,6 @@ static int __w2e_server__iptables_init()
 int main(int argc, char** argv)
 {
 	int			ret = 0;
-	int			val;
 	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char	*ini_fname = ini_default;
 
@@ -796,7 +801,10 @@ int main(int argc, char** argv)
 	/**
 	 * Start workers.
 	 */
-	__w2e_server__worker_main(NULL);
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		pthread_create(&(nfqueue_workers[i]), NULL, __w2e_server__worker_main, &(nfqueue_ctx[i]));
+	}
 
 
 	/****************************************************************

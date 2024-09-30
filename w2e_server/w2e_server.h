@@ -16,7 +16,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
-#include<arpa/inet.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
@@ -27,6 +27,8 @@
 #include <libnetfilter_queue/libnetfilter_queue_ipv4.h>
 #include <libnetfilter_queue/libnetfilter_queue_tcp.h>
 #include <libnetfilter_queue/libnetfilter_queue_udp.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "w2e_common.h"
 #include "w2e_art.h"
