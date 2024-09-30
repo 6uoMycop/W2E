@@ -675,6 +675,7 @@ static int __w2e_server__iptables_init()
 int main(int argc, char** argv)
 {
 	int			ret = 0;
+	int			status;
 	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char	*ini_fname = ini_default;
 
@@ -805,6 +806,14 @@ int main(int argc, char** argv)
 	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
 		pthread_create(&(nfqueue_workers[i]), NULL, __w2e_server__worker_main, &(nfqueue_ctx[i]));
+	}
+
+	/**
+	 * Wait for workers.
+	 */
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		pthread_join(nfqueue_workers[i], &status);
 	}
 
 
