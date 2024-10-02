@@ -138,7 +138,7 @@ typedef struct {
 
 /**
  * Shared-memory (platform-specific).
- * @TODO
+ * @TODO // currently moved to w2e_server.c
  */
 #if 0
 #ifdef _MSC_VER // Windows

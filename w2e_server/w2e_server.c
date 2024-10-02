@@ -26,6 +26,69 @@ static pthread_t nfqueue_workers[W2E_SERVER_NFQUEUE_NUM];
  */
 static volatile sig_atomic_t server_stop = 0;
 
+
+/**
+ * Shared memory counters.
+ */
+#ifdef W2E_SERVER_WITH_SHMM_CTRS
+
+/**
+ * Shared memory for counters.
+ */
+void* ctrs_shmm = NULL;
+
+/**
+ * Counters writer thread.
+ */
+static pthread_t ctrs_thread;
+static volatile sig_atomic_t ctrs_stop = 0;
+
+/**
+ * Counters writer worker.
+ */
+static void* __w2e_server__shmm_ctrs_worker(void* vptr_args)
+{
+	(void)vptr_args;
+
+	while (!ctrs_stop)
+	{
+		memcpy(ctrs_chmm, w2e_ctrs, sizeof(w2e_ctrs_t));
+
+		sleep(W2E_SERVER_SHMM_CTRS_UPD_INTERVAL);
+	}
+
+	return NULL;
+}
+
+/**
+ * Init counters.
+ */
+void __w2e_server__counters_init()
+{
+	ctrs_shmm = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, -1, 0);
+}
+
+/**
+ * Denit counters.
+ */
+void __w2e_server__counters_deinit()
+{
+	/** Counters writer thread stop */
+	ctrs_stop = 1;
+	/** Wait for it */
+	pthread_join(ctrs_thread);
+}
+
+#else /* !W2E_SERVER_WITH_SHMM_CTRS */
+
+/** Do nothing. W2E_SERVER_WITH_SHMM_CTRS is not set */
+#define __w2e_server__counters_init()   do{}while(0)
+/** Do nothing. W2E_SERVER_WITH_SHMM_CTRS is not set */
+#define __w2e_server__counters_deinit() do{}while(0)
+
+#endif /* !W2E_SERVER_WITH_SHMM_CTRS */
+
+
 /**
  * Context.
  */
@@ -725,6 +788,11 @@ int main(int argc, char** argv)
 	 * SIGINT handler.
 	 */
 	signal(SIGINT, __w2e_server__sig_handler);
+	
+	/**
+	 * Counters.
+	 */
+	__w2e_server__counters_init();
 
 	/**
 	 * INI parser.
@@ -880,6 +948,8 @@ exit_conntrack_deinit:
 	w2e_conntrack__deinit();
 
 exit_return:
+	__w2e_server__counters_deinit();
+
 	w2e_log_printf("Exiting now\n");
 	return ret;
 }

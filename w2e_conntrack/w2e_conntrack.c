@@ -397,7 +397,6 @@ int w2e_conntrack__init(void)
 
 	/** Garbage collector thread start */
 	pthread_create(&gc_thread, NULL, __w2e_conntrack__gc_worker, NULL);
-	pthread_detach(gc_thread);
 
 	return 0;
 }
@@ -422,6 +421,8 @@ int w2e_conntrack__deinit(void)
 
 	/** Garbage collector thread stop */
 	gc_stop = 1;
+	/** Wait for it */
+	pthread_join(gc_thread);
 
 	/** In every bucket */
 	for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)
