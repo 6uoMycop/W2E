@@ -33,6 +33,11 @@ static volatile sig_atomic_t server_stop = 0;
 #ifdef W2E_SERVER_WITH_SHMM_CTRS
 
 /**
+ * Shared memory file for counters.
+ */
+int ctrs_shmm_fd = -1;
+
+/**
  * Shared memory for counters.
  */
 void* ctrs_shmm = NULL;
@@ -52,7 +57,14 @@ static void* __w2e_server__shmm_ctrs_worker(void* vptr_args)
 
 	while (!ctrs_stop)
 	{
-		memcpy(ctrs_chmm, w2e_ctrs, sizeof(w2e_ctrs_t));
+		if (!ctrs_shmm)
+		{
+			w2e_print_error("__w2e_server__shmm_ctrs_worker() error: shmm is NULL. Thread terminating\n");
+			return NULL;
+		}
+
+		time(&(w2e_ctrs.ts));
+		memcpy(ctrs_shmm, &w2e_ctrs, sizeof(w2e_ctrs_t));
 
 		sleep(W2E_SERVER_SHMM_CTRS_UPD_INTERVAL);
 	}
@@ -63,9 +75,54 @@ static void* __w2e_server__shmm_ctrs_worker(void* vptr_args)
 /**
  * Init counters.
  */
-void __w2e_server__counters_init()
+static int __w2e_server__counters_init()
 {
-	ctrs_shmm = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, -1, 0);
+	/* Open a file for writing.
+	 *  - Creating the file if it doesn't exist.
+	 *  - Truncating it to 0 size if it already exists. (not really needed)
+	 *
+	 * Note: "O_WRONLY" mode is not sufficient when mmaping.
+	 */
+	ctrs_shmm_fd = open(W2E_SERVER_SHMM_CTRS_FILEPATH, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
+	if (ctrs_shmm_fd == -1)
+	{
+		w2e_print_error("Error opening file for writing shmm counters");
+		return -1;
+	}
+	/*
+	 * Stretch the file size to the size of the (mmapped) array of ints
+	 */
+	if (lseek(ctrs_shmm_fd, sizeof(w2e_ctrs_t) - 1, SEEK_SET) == -1)
+	{
+		close(ctrs_shmm_fd);
+		w2e_print_error("Error calling lseek()");
+		return -1;
+	}/* Something needs to be written at the end of the file to
+     * have the file actually have the new size.
+     * Just writing an empty string at the current file position will do.
+     *
+     * Note:
+     *  - The current position in the file is at the end of the stretched 
+     *    file due to the call to lseek().
+     *  - An empty string is actually a single '\0' character, so a zero-byte
+     *    will be written at the last byte of the file.
+     */
+	if (write(ctrs_shmm_fd, "", 1) != 1)
+	{
+		close(ctrs_shmm_fd);
+		w2e_print_error("Error writing last byte of the file");
+		return -1;
+	}
+
+	ctrs_shmm = mmap(NULL, sizeof(w2e_ctrs_t), PROT_READ | PROT_WRITE, MAP_SHARED, ctrs_shmm_fd, 0);
+	if (ctrs_shmm == MAP_FAILED)
+	{
+		close(ctrs_shmm_fd);
+		w2e_print_error("Error mmapping the file");
+		return -1;
+	}
+
+	return 0;
 }
 
 /**
@@ -76,13 +133,23 @@ void __w2e_server__counters_deinit()
 	/** Counters writer thread stop */
 	ctrs_stop = 1;
 	/** Wait for it */
-	pthread_join(ctrs_thread);
+	pthread_join(ctrs_thread, NULL);
+
+	/* Free the mmapped memory */
+	if (munmap(ctrs_shmm, sizeof(w2e_ctrs_t)) == -1)
+	{
+		w2e_print_error("Error un-mmapping the file");
+	}
+
+	/* Un-mmaping doesn't close the file, so we still need to do that.
+	 */
+	close(ctrs_shmm_fd);
 }
 
 #else /* !W2E_SERVER_WITH_SHMM_CTRS */
 
 /** Do nothing. W2E_SERVER_WITH_SHMM_CTRS is not set */
-#define __w2e_server__counters_init()   do{}while(0)
+#define __w2e_server__counters_init()   0
 /** Do nothing. W2E_SERVER_WITH_SHMM_CTRS is not set */
 #define __w2e_server__counters_deinit() do{}while(0)
 
@@ -586,7 +653,7 @@ static int __w2e_server__sock_init()
 		return -1;
 	}
 	/** Bind to configured interface //@TODO from config */
-	const char* interface_name = "ens4";
+	const char* interface_name = "eth0";
 	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, interface_name, strlen(interface_name)) < 0)
 	{
 		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", interface_name);
@@ -704,14 +771,20 @@ static int __w2e_server__iptables_add(
 	const char* proto,		/** protocol name */
 	const char* port_dir,	/** port direction src or dst: {"--sport", "--dport"} */
 	const char* port,		/** port value/range */
-	const char* balance		/** balance queues: must be "0:x", where x= W2E_SERVER_NFQUEUE_NUM-1 */
+	const char* balance		/** balance queues: must be "0:x", where x= W2E_SERVER_NFQUEUE_NUM-1, or "0" if W2E_SERVER_NFQUEUE_NUM==0 */
 )
 {
 	int stat;
 	char* const args[] = {
 		"iptables", "-t", "raw", "-A", "PREROUTING",
 		"-p", proto, port_dir, port, "-i", iface,
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", balance, NULL };
+		"-j", "NFQUEUE", "--queue-bypass",
+#if W2E_SERVER_NFQUEUE_NUM > 1
+		"--queue-balance",
+#else // W2E_SERVER_NFQUEUE_NUM == 0
+		"--queue-num",
+#endif // W2E_SERVER_NFQUEUE_NUM == 0
+		balance, NULL };
 
 	int pid = fork();
 
@@ -738,16 +811,18 @@ static int __w2e_server__iptables_add(
  */
 static int __w2e_server__iptables_init()
 {
-	char balance[5] = "0:";
+	char num_or_balance[5] = "0";
 	const char iface[] = "ens4"; /** @TODO get rid of hardcode */
 
-#if W2E_SERVER_NFQUEUE_NUM > 99
+#if W2E_SERVER_NFQUEUE_NUM < 1 || W2E_SERVER_NFQUEUE_NUM > 99
 #error "W2E_SERVER_NFQUEUE_NUM must be at most 2 digits long"
 #endif // W2E_SERVER_NFQUEUE_NUM > 99
 
-	snprintf(&(balance[2]), 3, "%d", W2E_SERVER_NFQUEUE_NUM - 1);
+#if W2E_SERVER_NFQUEUE_NUM > 1
+	snprintf(&(num_or_balance[2]), 3, ":%d", W2E_SERVER_NFQUEUE_NUM - 1);
+#endif // W2E_SERVER_NFQUEUE_NUM != 0
 
-	w2e_dbg_printf("balance: \'%s\'\n", balance);
+	w2e_dbg_printf("num_or_balance: \'%s\'\n", num_or_balance);
 
 	/** Flush all, then: */
 	/** HTTPS: iptables -t raw -A PREROUTING -p tcp --sport 443         -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
@@ -755,10 +830,10 @@ static int __w2e_server__iptables_init()
 	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
 	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
 	if (__w2e_server__iptables_flush()
-		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "443", balance) != 0
-		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "80", balance) != 0
-		|| __w2e_server__iptables_add(iface, "udp", "--sport", "53", balance) != 0
-		|| __w2e_server__iptables_add(iface, "udp", "--dport", "43520:43775", balance) != 0
+		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "443", num_or_balance) != 0
+		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "80", num_or_balance) != 0
+		|| __w2e_server__iptables_add(iface, "udp", "--sport", "53", num_or_balance) != 0
+		|| __w2e_server__iptables_add(iface, "udp", "--dport", "43520:43775", num_or_balance) != 0
 	)
 	{
 		w2e_print_error("rule create error\n");
@@ -788,11 +863,6 @@ int main(int argc, char** argv)
 	 * SIGINT handler.
 	 */
 	signal(SIGINT, __w2e_server__sig_handler);
-	
-	/**
-	 * Counters.
-	 */
-	__w2e_server__counters_init();
 
 	/**
 	 * INI parser.
@@ -820,13 +890,22 @@ int main(int argc, char** argv)
 	}
 
 	/**
+	 * Counters.
+	 */
+	if(__w2e_server__counters_init() != 0)
+	{
+		w2e_print_error("shmm init error\n");
+		goto exit_return;
+	}
+
+	/**
 	 * Conntrack init.
 	 */
 	if (w2e_conntrack__init() != 0)
 	{
 		w2e_print_error("Conntrack init error\n");
 		ret = 1;
-		goto exit_return;
+		goto exit_shmm_deinit;
 	}
 
 	/**
@@ -947,9 +1026,11 @@ exit_conntrack_deinit:
 	w2e_log_printf("Deinitialize conntrack\n");
 	w2e_conntrack__deinit();
 
-exit_return:
+exit_shmm_deinit:
+	w2e_log_printf("Deinitialize shmm\n");
 	__w2e_server__counters_deinit();
 
+exit_return:
 	w2e_log_printf("Exiting now\n");
 	return ret;
 }

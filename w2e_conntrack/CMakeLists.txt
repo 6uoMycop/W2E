@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt: проект CMake для w2e_conntrack (static lib). Used by Linux server
 #
 
-add_library (w2e_conntrack STATIC "w2e_conntrack.c" "w2e_conntrack.h")
+add_library (w2e_conntrack STATIC "w2e_conntrack.c" "w2e_conntrack.h" "w2e_linux_list.h")
 
 
 if (CMAKE_VERSION VERSION_GREATER 3.21)

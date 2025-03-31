@@ -422,7 +422,7 @@ int w2e_conntrack__deinit(void)
 	/** Garbage collector thread stop */
 	gc_stop = 1;
 	/** Wait for it */
-	pthread_join(gc_thread);
+	pthread_join(gc_thread, NULL);
 
 	/** In every bucket */
 	for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)

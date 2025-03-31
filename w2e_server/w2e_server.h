@@ -30,7 +30,10 @@
 #include <libnetfilter_queue/libnetfilter_queue_udp.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+#ifdef W2E_SERVER_WITH_SHMM_CTRS
 #include <sys/mman.h>
+#endif // W2E_SERVER_WITH_SHMM_CTRS
 
 #include "w2e_common.h"
 #include "w2e_art.h"
@@ -48,11 +51,31 @@
 #endif // !W2E_MAX_CLIENTS
 
 #ifndef W2E_SERVER_NFQUEUE_NUM
- /**
-  * Number of NFQUEUEs (and threads - 1 per queue) on server.
-  */
+/**
+ * Number of NFQUEUEs (and threads - 1 per queue) on server.
+ */
 #define W2E_SERVER_NFQUEUE_NUM 1
 #endif // !W2E_SERVER_NFQUEUE_NUM
+
+
+#ifdef W2E_SERVER_WITH_SHMM_CTRS
+
+#ifndef W2E_SERVER_SHMM_CTRS_UPD_INTERVAL
+/**
+ * Interval in seconds for shared memory counters update.
+ */
+#define W2E_SERVER_SHMM_CTRS_UPD_INTERVAL 5
+#endif // !W2E_SERVER_SHMM_CTRS_UPD_INTERVAL
+
+#ifndef W2E_SERVER_SHMM_CTRS_FILEPATH
+/**
+ * Absolute path to shared memory file containing w2e_ctrs_t
+ */
+#define W2E_SERVER_SHMM_CTRS_FILEPATH "/tmp/.w2e_ctrs_shmm.bin"
+#endif // !W2E_SERVER_SHMM_CTRS_FILEPATH
+
+#endif // W2E_SERVER_WITH_SHMM_CTRS
+
 
 /**
  * Client context.

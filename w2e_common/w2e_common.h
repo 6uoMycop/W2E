@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
+
 
 #ifdef _MSC_VER // Windows
 #include <winsock.h>
@@ -126,14 +128,15 @@
  * Counters.
  */
 typedef struct {
-	unsigned int total_rx;	/* Total received packets */
-	unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
-	unsigned int ok_rx;		/* Correct packets received */
-	unsigned int ok_tx;		/* Correct packets sent */
-	unsigned int err_rx;	/* Malformed packets received */
-	unsigned int err_tx;	/* Packets loss on send */
-	unsigned int encap;		/* Number of encapsulated packets */
-	unsigned int decap;		/* Number of decapsulated packets */
+	_Atomic time_t       ts;		/* Timestamp */
+	_Atomic unsigned int total_rx;	/* Total received packets */
+	_Atomic unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
+	_Atomic unsigned int ok_rx;		/* Correct packets received */
+	_Atomic unsigned int ok_tx;		/* Correct packets sent */
+	_Atomic unsigned int err_rx;	/* Malformed packets received */
+	_Atomic unsigned int err_tx;	/* Packets loss on send */
+	_Atomic unsigned int encap;		/* Number of encapsulated packets */
+	_Atomic unsigned int decap;		/* Number of decapsulated packets */
 } w2e_ctrs_t;
 
 /**
