@@ -232,3 +232,5 @@ netsh interface ipv4 set subinterface <INTERFACE_NAME> mtu=1440 store=active
 
 </details>
 
+- You can use `w2e_get_counters.sh` to read counters on server. Refer to `w2e_ctrs_t` declaration and script itself.
+
