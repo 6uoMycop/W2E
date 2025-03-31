@@ -128,7 +128,7 @@
  * Counters.
  */
 typedef struct {
-	_Atomic time_t       ts;		/* Timestamp */
+	time_t               ts;		/* Timestamp */
 	_Atomic unsigned int total_rx;	/* Total received packets */
 	_Atomic unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
 	_Atomic unsigned int ok_rx;		/* Correct packets received */

@@ -55,7 +55,7 @@ static void* __w2e_server__shmm_ctrs_worker(void* vptr_args)
 {
 	(void)vptr_args;
 
-	while (!ctrs_stop)
+	while (!ctrs_stop && !server_stop)
 	{
 		if (!ctrs_shmm)
 		{
@@ -122,6 +122,9 @@ static int __w2e_server__counters_init()
 		return -1;
 	}
 
+	/** Counters shmm thread start */
+	pthread_create(&ctrs_thread, NULL, __w2e_server__shmm_ctrs_worker, NULL);
+
 	return 0;
 }
 
@@ -144,6 +147,11 @@ void __w2e_server__counters_deinit()
 	/* Un-mmaping doesn't close the file, so we still need to do that.
 	 */
 	close(ctrs_shmm_fd);
+
+	/** Counters shmm thread stop */
+	ctrs_stop = 1;
+	/** Wait for it */
+	pthread_join(ctrs_thread, NULL);
 }
 
 #else /* !W2E_SERVER_WITH_SHMM_CTRS */
