@@ -12,11 +12,14 @@ endif()
 if(MSVC)
 	message(FATAL_ERROR "w2e_server is a Linux app")
 else()
-	target_compile_options(w2e_server PRIVATE -Wall -Wextra -Wpedantic)
+#	target_compile_options(w2e_server PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # Copy configs to be near executable
 file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/w2e_server/*.config") # For wildcard COPY
+file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy scripts to be near EXE
+file(GLOB G_VAR_CONFIGS "${CMAKE_HOME_DIRECTORY}/misc/scripts_lin/*") # For wildcard COPY
 file(COPY ${G_VAR_CONFIGS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(w2e_server

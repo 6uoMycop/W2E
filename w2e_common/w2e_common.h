@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
+
 
 #ifdef _MSC_VER // Windows
 #include <winsock.h>
@@ -75,9 +77,9 @@
 #ifndef W2E_DEBUG
 
 	/** Debug printf macro NOP */
-	#define w2e_dbg_printf(...) do {} while (0);
+	#define w2e_dbg_printf(...) do {} while (0)
 	/** Debug buffer hex dump macro NOP */
-	#define w2e_dbg_dump(len, buf) do {} while (0);
+	#define w2e_dbg_dump(len, buf) do {} while (0)
 
 #else // W2E_DEBUG
 
@@ -87,7 +89,7 @@
 	#endif // !W2E_VERBOSE
 
 	/** Define debug printf macro */
-	#define w2e_dbg_printf(fmt, ...) printf("[DBG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
+	#define w2e_dbg_printf(fmt, ...) do { printf("[DBG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 	#ifndef W2E_DEBUG_NO_HEX
 	/** Debug buffer hex dump macro */
@@ -95,10 +97,10 @@
 		do { \
 			for (int __i = 0; __i < len; __i++) printf("%02X ", (unsigned char)(buf[__i])); \
 			printf("\n"); \
-		} while (0);
+		} while (0)
 	#else
 		/** Debug buffer hex dump macro NOP */
-		#define w2e_dbg_dump(len, buf) do {} while (0);
+		#define w2e_dbg_dump(len, buf) do {} while (0)
 	#endif // !W2E_DEBUG_NO_HEX
 
 #endif // W2E_DEBUG
@@ -109,36 +111,37 @@
  */
 #ifndef W2E_VERBOSE
  /** Verbose printf macro NOP */
-#define w2e_log_printf(...) do {} while (0);
+#define w2e_log_printf(...) do {} while (0)
 #else
 /** Define verbose printf macro */
-#define w2e_log_printf(fmt, ...) printf("[LOG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
+#define w2e_log_printf(fmt, ...) do { printf("[LOG]  %16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
 #endif // !W2E_VERBOSE
 
 
 /**
  * Define error printf macro.
  */
-#define w2e_print_error(fmt, ...) fprintf(stderr, "[ERROR]%16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__);
+#define w2e_print_error(fmt, ...) do { fprintf(stderr, "[ERROR]%16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 
 /**
  * Counters.
  */
 typedef struct {
-	unsigned int total_rx;	/* Total received packets */
-	unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
-	unsigned int ok_rx;		/* Correct packets received */
-	unsigned int ok_tx;		/* Correct packets sent */
-	unsigned int err_rx;	/* Malformed packets received */
-	unsigned int err_tx;	/* Packets loss on send */
-	unsigned int encap;		/* Number of encapsulated packets */
-	unsigned int decap;		/* Number of decapsulated packets */
+	time_t               ts;		/* Timestamp */
+	_Atomic unsigned int total_rx;	/* Total received packets */
+	_Atomic unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
+	_Atomic unsigned int ok_rx;		/* Correct packets received */
+	_Atomic unsigned int ok_tx;		/* Correct packets sent */
+	_Atomic unsigned int err_rx;	/* Malformed packets received */
+	_Atomic unsigned int err_tx;	/* Packets loss on send */
+	_Atomic unsigned int encap;		/* Number of encapsulated packets */
+	_Atomic unsigned int decap;		/* Number of decapsulated packets */
 } w2e_ctrs_t;
 
 /**
  * Shared-memory (platform-specific).
- * @TODO
+ * @TODO // currently moved to w2e_server.c
  */
 #if 0
 #ifdef _MSC_VER // Windows

@@ -397,7 +397,6 @@ int w2e_conntrack__init(void)
 
 	/** Garbage collector thread start */
 	pthread_create(&gc_thread, NULL, __w2e_conntrack__gc_worker, NULL);
-	pthread_detach(gc_thread);
 
 	return 0;
 }
@@ -422,6 +421,8 @@ int w2e_conntrack__deinit(void)
 
 	/** Garbage collector thread stop */
 	gc_stop = 1;
+	/** Wait for it */
+	pthread_join(gc_thread, NULL);
 
 	/** In every bucket */
 	for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)
@@ -433,10 +434,12 @@ int w2e_conntrack__deinit(void)
 		{
 			w2e_dbg_printf("Deleted ct entry : 0x%08X 0x%08X 0x%04X 0x%04X 0x%02X\n",
 				ct->tuple.addr[0], ct->tuple.addr[1], ct->tuple.port[0], ct->tuple.port[1], ct->tuple.proto);
+			pthread_mutex_lock(&(bucket->mutex));
 			/* Remove the component from the list */
 			list_del(&(ct->list));
 			/* Free the memory */
 			free(ct);
+			pthread_mutex_lock(&(bucket->mutex));
 		}
 	}
 

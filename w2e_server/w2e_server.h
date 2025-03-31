@@ -12,11 +12,12 @@
 
 
 #include <stdlib.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
-#include<arpa/inet.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
@@ -27,6 +28,12 @@
 #include <libnetfilter_queue/libnetfilter_queue_ipv4.h>
 #include <libnetfilter_queue/libnetfilter_queue_tcp.h>
 #include <libnetfilter_queue/libnetfilter_queue_udp.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#ifdef W2E_SERVER_WITH_SHMM_CTRS
+#include <sys/mman.h>
+#endif // W2E_SERVER_WITH_SHMM_CTRS
 
 #include "w2e_common.h"
 #include "w2e_art.h"
@@ -43,6 +50,32 @@
 #define W2E_MAX_CLIENTS 255
 #endif // !W2E_MAX_CLIENTS
 
+#ifndef W2E_SERVER_NFQUEUE_NUM
+/**
+ * Number of NFQUEUEs (and threads - 1 per queue) on server.
+ */
+#define W2E_SERVER_NFQUEUE_NUM 1
+#endif // !W2E_SERVER_NFQUEUE_NUM
+
+
+#ifdef W2E_SERVER_WITH_SHMM_CTRS
+
+#ifndef W2E_SERVER_SHMM_CTRS_UPD_INTERVAL
+/**
+ * Interval in seconds for shared memory counters update.
+ */
+#define W2E_SERVER_SHMM_CTRS_UPD_INTERVAL 5
+#endif // !W2E_SERVER_SHMM_CTRS_UPD_INTERVAL
+
+#ifndef W2E_SERVER_SHMM_CTRS_FILEPATH
+/**
+ * Absolute path to shared memory file containing w2e_ctrs_t
+ */
+#define W2E_SERVER_SHMM_CTRS_FILEPATH "/tmp/.w2e_ctrs_shmm.bin"
+#endif // !W2E_SERVER_SHMM_CTRS_FILEPATH
+
+#endif // W2E_SERVER_WITH_SHMM_CTRS
+
 
 /**
  * Client context.
@@ -58,6 +91,25 @@ typedef struct {
 	uint16_t	port_client;		/** Server visible client's port of encapsulated UDP packets (in network byte order) */
 	uint32_t	ip_dns_last;		/** Last client DNS address in network byte order */
 } w2e_cfg_client_ctx_t;
+
+
+/**
+ * NFUQEUE context. Also passed to __w2e_server__cb() as last arg.
+ */
+typedef struct {
+	/**
+	 * Raw socket.
+	 */
+	int						sock_tx;
+
+	/**
+	 * NFQUEUE.
+	 */
+	int						id;			/** NFQUEUE id */
+	struct nfq_handle*		h;
+	struct nfq_q_handle*	qh;
+	int						fd;
+} w2e_nfqueue_ctx;
 
 
 /**

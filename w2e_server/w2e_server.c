@@ -16,28 +16,159 @@
 static w2e_ctrs_t w2e_ctrs = { 0 };
 
 /**
- * TX raw socket.
+ * NFQUEUE ctxt.
  */
-static int sock_tx = -1;
+static w2e_nfqueue_ctx nfqueue_ctx[W2E_SERVER_NFQUEUE_NUM] = { 0 };
+static pthread_t nfqueue_workers[W2E_SERVER_NFQUEUE_NUM];
 
 /**
- * NFQUEUE.
+ * Workers stop flag.
  */
-static struct nfq_handle* h = NULL;
-static struct nfq_q_handle* qh = NULL;
-static int fd;
-
-/**
- * Send buffer.
- */
-static unsigned char pkt1[W2E_MAX_PACKET_SIZE] = { 0 };
-
 static volatile sig_atomic_t server_stop = 0;
+
+
+/**
+ * Shared memory counters.
+ */
+#ifdef W2E_SERVER_WITH_SHMM_CTRS
+
+/**
+ * Shared memory file for counters.
+ */
+int ctrs_shmm_fd = -1;
+
+/**
+ * Shared memory for counters.
+ */
+void* ctrs_shmm = NULL;
+
+/**
+ * Counters writer thread.
+ */
+static pthread_t ctrs_thread;
+static volatile sig_atomic_t ctrs_stop = 0;
+
+/**
+ * Counters writer worker.
+ */
+static void* __w2e_server__shmm_ctrs_worker(void* vptr_args)
+{
+	(void)vptr_args;
+
+	while (!ctrs_stop && !server_stop)
+	{
+		if (!ctrs_shmm)
+		{
+			w2e_print_error("__w2e_server__shmm_ctrs_worker() error: shmm is NULL. Thread terminating\n");
+			return NULL;
+		}
+
+		time(&(w2e_ctrs.ts));
+		memcpy(ctrs_shmm, &w2e_ctrs, sizeof(w2e_ctrs_t));
+
+		sleep(W2E_SERVER_SHMM_CTRS_UPD_INTERVAL);
+	}
+
+	return NULL;
+}
+
+/**
+ * Init counters.
+ */
+static int __w2e_server__counters_init()
+{
+	/* Open a file for writing.
+	 *  - Creating the file if it doesn't exist.
+	 *  - Truncating it to 0 size if it already exists. (not really needed)
+	 *
+	 * Note: "O_WRONLY" mode is not sufficient when mmaping.
+	 */
+	ctrs_shmm_fd = open(W2E_SERVER_SHMM_CTRS_FILEPATH, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
+	if (ctrs_shmm_fd == -1)
+	{
+		w2e_print_error("Error opening file for writing shmm counters");
+		return -1;
+	}
+	/*
+	 * Stretch the file size to the size of the (mmapped) array of ints
+	 */
+	if (lseek(ctrs_shmm_fd, sizeof(w2e_ctrs_t) - 1, SEEK_SET) == -1)
+	{
+		close(ctrs_shmm_fd);
+		w2e_print_error("Error calling lseek()");
+		return -1;
+	}/* Something needs to be written at the end of the file to
+	 * have the file actually have the new size.
+	 * Just writing an empty string at the current file position will do.
+	 *
+	 * Note:
+	 *  - The current position in the file is at the end of the stretched 
+	 *    file due to the call to lseek().
+	 *  - An empty string is actually a single '\0' character, so a zero-byte
+	 *    will be written at the last byte of the file.
+	 */
+	if (write(ctrs_shmm_fd, "", 1) != 1)
+	{
+		close(ctrs_shmm_fd);
+		w2e_print_error("Error writing last byte of the file");
+		return -1;
+	}
+
+	ctrs_shmm = mmap(NULL, sizeof(w2e_ctrs_t), PROT_READ | PROT_WRITE, MAP_SHARED, ctrs_shmm_fd, 0);
+	if (ctrs_shmm == MAP_FAILED)
+	{
+		close(ctrs_shmm_fd);
+		w2e_print_error("Error mmapping the file");
+		return -1;
+	}
+
+	/** Counters shmm thread start */
+	pthread_create(&ctrs_thread, NULL, __w2e_server__shmm_ctrs_worker, NULL);
+
+	return 0;
+}
+
+/**
+ * Denit counters.
+ */
+void __w2e_server__counters_deinit()
+{
+	/** Counters writer thread stop */
+	ctrs_stop = 1;
+	/** Wait for it */
+	pthread_join(ctrs_thread, NULL);
+
+	/* Free the mmapped memory */
+	if (munmap(ctrs_shmm, sizeof(w2e_ctrs_t)) == -1)
+	{
+		w2e_print_error("Error un-mmapping the file");
+	}
+
+	/* Un-mmaping doesn't close the file, so we still need to do that.
+	 */
+	close(ctrs_shmm_fd);
+
+	/** Counters shmm thread stop */
+	ctrs_stop = 1;
+	/** Wait for it */
+	pthread_join(ctrs_thread, NULL);
+}
+
+#else /* !W2E_SERVER_WITH_SHMM_CTRS */
+
+/** Do nothing. W2E_SERVER_WITH_SHMM_CTRS is not set */
+#define __w2e_server__counters_init()   0
+/** Do nothing. W2E_SERVER_WITH_SHMM_CTRS is not set */
+#define __w2e_server__counters_deinit() do{}while(0)
+
+#endif /* !W2E_SERVER_WITH_SHMM_CTRS */
+
 
 /**
  * Context.
  */
 static w2e_cfg_server_ctx_t w2e_ctx = { 0 };
+
 
 /**
  * INI config parser.
@@ -116,9 +247,10 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 /**
  * Packet processing point.
  */
-static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
+static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data)
 {
-	u_int32_t						id;
+	static unsigned char			pkt1[W2E_MAX_PACKET_SIZE] = { 0 }; /** Send buffer. */
+	u_int32_t						id; /** NFQUEUE packet ID */
 	struct nfqnl_msg_packet_hdr		*ph;
 	unsigned char					*pkt;
 	struct iphdr					*hdr_ip,  *hdr_pre_ip = (struct iphdr*)pkt1,          *hdr_dec_ip = (struct iphdr*)pkt1;
@@ -128,9 +260,9 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_port = 0, .sin_addr = { 0 } };
 	uint16_t						id_client = 0;
 	w2e_ct_entry_t					*ct = NULL;
+	w2e_nfqueue_ctx* ctx = (w2e_nfqueue_ctx*)data;
 
 	(void)nfmsg;
-	(void)data;
 
 	w2e_ctrs.total_rx++;
 
@@ -143,7 +275,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 		w2e_print_error("nfq_get_payload() error\n");
 		w2e_ctrs.err_rx++;
 		w2e_ctrs.total_tx++;
-		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+		return nfq_set_verdict(qhandle, id, NF_ACCEPT, 0, NULL);
 	}
 
 
@@ -154,7 +286,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, str
 	if (hdr_ip->version != 4)
 	{
 		w2e_ctrs.total_tx++;
-		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+		return nfq_set_verdict(qhandle, id, NF_ACCEPT, 0, NULL);
 	}
 
 	hdr_udp = (struct udphdr*)&(pkt[hdr_ip->ihl * 4]);
@@ -383,7 +515,7 @@ send_modified:
 	w2e_dbg_dump(len_send, pkt1);
 
 
-	if (sendto(sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
+	if (sendto(ctx->sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
 	{
 		w2e_ctrs.err_tx++;
 		w2e_print_error("Sendto failed! Length %d. Drop\n", len_send);
@@ -399,22 +531,32 @@ send_modified:
 	 * Drop original packet.
 	 */
 drop:
-	return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+	return nfq_set_verdict(qhandle, id, NF_DROP, 0, NULL);
 
 	/**
 	 * Send original packet.
 	 */
 send_original:
 	w2e_ctrs.total_tx++;
-	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+	return nfq_set_verdict(qhandle, id, NF_ACCEPT, 0, NULL);
 }
+
+
+/**
+ * NFQUEUE deinit.
+ */
+static void __w2e_server__nfqueue_deinit(w2e_nfqueue_ctx* ctx)
+{
+	nfq_destroy_queue(ctx->qh);
+	nfq_close(ctx->h);
+}
+
 
 static void __w2e_server__deinit()
 {
 	/** Server already stopped (double signal failure pervention) */
 	if (server_stop)
 	{
-		w2e_print_error("Server is already stopped or being stopped\n");
 		return;
 	}
 
@@ -423,10 +565,10 @@ static void __w2e_server__deinit()
 	 */
 	server_stop = 1;
 
+#if 0 // already deinitializes in main
 	/**
 	 * Conntrack deinit.
 	 */
-	w2e_log_printf("Conntrack deinit\n");
 	if (w2e_conntrack__deinit() != 0)
 	{
 		w2e_print_error("Conntrack deinit error\n");
@@ -435,15 +577,14 @@ static void __w2e_server__deinit()
 	/**
 	 * NFQUEUE deinit.
 	 */
-	w2e_log_printf("Unbinding from queue\n");
-	nfq_destroy_queue(qh);
-	w2e_log_printf("Closing library handle\n");
-	nfq_close(h);
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		__w2e_server__nfqueue_deinit(&(nfqueue_ctx[i]));
+	}
 
 	/**
 	 * Crypto lib deinit.
 	 */
-	w2e_log_printf("Crypto deinit\n");
 	/** For all clients */
 	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
 	{
@@ -460,8 +601,11 @@ static void __w2e_server__deinit()
 	/**
 	 * Close socket descriptor.
 	 */
-	w2e_log_printf("TX socket close\n");
-	close(sock_tx);
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		close(nfqueue_ctx[i].sock_tx);
+	}
+#endif /* 0 */
 }
 
 void __w2e_server__sig_handler(int n)
@@ -478,17 +622,17 @@ static void* __w2e_server__worker_main(void* data)
 {
 	int		rv;
 	char	buf[W2E_MAX_PACKET_SIZE] __attribute__((aligned));
-	(void)data;
+	w2e_nfqueue_ctx* ctx = (w2e_nfqueue_ctx *)data;
 
-	w2e_log_printf("worker main start\n");
+	w2e_log_printf("worker %d start\n", ctx->id);
 
 	while (!server_stop)
 	{
-		rv = recv(fd, buf, sizeof(buf), 0);
+		rv = recv(ctx->fd, buf, sizeof(buf), 0);
 		if (rv >= 0)
 		{
 			//w2e_dbg_printf("pkt received\n");
-			nfq_handle_packet(h, buf, rv);
+			nfq_handle_packet(ctx->h, buf, rv); //@TODO
 		}
 		else
 		{
@@ -501,79 +645,232 @@ static void* __w2e_server__worker_main(void* data)
 }
 
 
+/**
+ * TX raw socket init. Returns new socket or -1 on error
+ */
+static int __w2e_server__sock_init()
+{
+	int val;
+	int s = -1;
+
+	/** Create socket. */
+	s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if (s < 0)
+	{
+		w2e_print_error("Socket init error\n");
+		return -1;
+	}
+	/** Bind to configured interface //@TODO from config */
+	const char* interface_name = "eth0";
+	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, interface_name, strlen(interface_name)) < 0)
+	{
+		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", interface_name);
+		return -1;
+	}
+	/** Set flag so socket will not discover path MTU. */
+	val = 0;
+	if (setsockopt(s, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0)
+	{
+		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
+		return -1;
+	}
+	/** Test if the socket is in blocking mode. */
+	if (!(fcntl(s, F_GETFL) & O_NONBLOCK))
+	{
+		/** Put the socket in non-blocking mode. */
+		if (fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK) < 0)
+		{
+			w2e_print_error("fcntl() failed to set O_NONBLOCK\n");
+			return -1;
+		}
+	}
+
+	return s;
+}
+
+
+/**
+ * Init NFQUEUE and its context.
+ */
+static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
+{
+	w2e_log_printf("Opening library handle\n");
+	ctx->h = nfq_open();
+	if (!ctx->h)
+	{
+		w2e_print_error("Error during nfq_open()\n");
+		return 1;
+	}
+
+	w2e_log_printf("Unbinding existing nf_queue handler for AF_INET (if any)\n");
+	if (nfq_unbind_pf(ctx->h, AF_INET) < 0)
+	{
+		w2e_print_error("Error during nfq_unbind_pf()\n");
+		return 1;
+	}
+
+	w2e_log_printf("Binding nfnetlink_queue as nf_queue handler for AF_INET\n");
+	if (nfq_bind_pf(ctx->h, AF_INET) < 0)
+	{
+		w2e_print_error("Error during nfq_bind_pf()\n");
+		return 1;
+	}
+
+	ctx->id = id;
+	w2e_log_printf("Binding the program to queue %d (total %d)\n", ctx->id, W2E_SERVER_NFQUEUE_NUM);
+	ctx->qh = nfq_create_queue(ctx->h, ctx->id, &__w2e_server__cb, ctx);
+	if (!ctx->qh)
+	{
+		w2e_print_error("Error during nfq_create_queue()\n");
+		return 1;
+	}
+
+	w2e_log_printf("Setting copy_packet mode\n");
+	if (nfq_set_mode(ctx->qh, NFQNL_COPY_PACKET, 0xffff) < 0)
+	{
+		w2e_print_error("Can't set packet_copy mode\n");
+		return 1;
+	}
+
+	w2e_log_printf("Setting queue length\n");
+	if (nfq_set_queue_maxlen(ctx->qh, 0xFFFFFFFF) < 0)
+	{
+		w2e_print_error("Can't set packet_copy mode\n");
+		return 1;
+	}
+
+	ctx->fd = nfq_fd(ctx->h);
+	return 0;
+}
+
+
+/**
+ * Delete all iptables rules.
+ */
+static int __w2e_server__iptables_flush()
+{
+	int stat;
+	char* const args[] = { "iptables", "-t", "raw", "-F", NULL };
+
+	int pid = fork();
+
+	if (pid == -1)
+	{
+		w2e_print_error("fork error\n");
+		return 1;
+	}
+	else if (pid == 0)
+	{
+		execvp("iptables", args);
+		w2e_print_error("exec error\n"); /** exec never returns */
+		exit(1);
+	}
+
+	waitpid(pid, &stat, 0);
+	w2e_dbg_printf("return %d\n", stat);
+	return stat;
+}
+
+/**
+ * Add iptables rule.
+ */
+static int __w2e_server__iptables_add(
+	const char* iface,		/** interface name */
+	const char* proto,		/** protocol name */
+	const char* port_dir,	/** port direction src or dst: {"--sport", "--dport"} */
+	const char* port,		/** port value/range */
+	const char* balance		/** balance queues: must be "0:x", where x= W2E_SERVER_NFQUEUE_NUM-1, or "0" if W2E_SERVER_NFQUEUE_NUM==0 */
+)
+{
+	int stat;
+	char* const args[] = {
+		"iptables", "-t", "raw", "-A", "PREROUTING",
+		"-p", proto, port_dir, port, "-i", iface,
+		"-j", "NFQUEUE", "--queue-bypass",
+#if W2E_SERVER_NFQUEUE_NUM > 1
+		"--queue-balance",
+#else // W2E_SERVER_NFQUEUE_NUM == 0
+		"--queue-num",
+#endif // W2E_SERVER_NFQUEUE_NUM == 0
+		balance, NULL };
+
+	int pid = fork();
+
+	if (pid == -1)
+	{
+		w2e_print_error("fork error\n");
+		return 1;
+	}
+	else if (pid == 0)
+	{
+		execvp("iptables", args);
+		w2e_print_error("exec error\n"); /** exec never returns */
+		exit(1);
+	}
+
+	waitpid(pid, &stat, 0);
+	w2e_dbg_printf("return %d\n", stat);
+	return stat;
+}
+
+
+/**
+ * Create all essential iptables rules.
+ */
+static int __w2e_server__iptables_init()
+{
+	char num_or_balance[5] = "0";
+	const char iface[] = "ens4"; /** @TODO get rid of hardcode */
+
+#if W2E_SERVER_NFQUEUE_NUM < 1 || W2E_SERVER_NFQUEUE_NUM > 99
+#error "W2E_SERVER_NFQUEUE_NUM must be at most 2 digits long"
+#endif // W2E_SERVER_NFQUEUE_NUM > 99
+
+#if W2E_SERVER_NFQUEUE_NUM > 1
+	snprintf(&(num_or_balance[2]), 3, ":%d", W2E_SERVER_NFQUEUE_NUM - 1);
+#endif // W2E_SERVER_NFQUEUE_NUM != 0
+
+	w2e_dbg_printf("num_or_balance: \'%s\'\n", num_or_balance);
+
+	/** Flush all, then: */
+	/** HTTPS: iptables -t raw -A PREROUTING -p tcp --sport 443         -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** HTTP:  iptables -t raw -A PREROUTING -p tcp --sport 80          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	if (__w2e_server__iptables_flush()
+		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "443", num_or_balance) != 0
+		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "80", num_or_balance) != 0
+		|| __w2e_server__iptables_add(iface, "udp", "--sport", "53", num_or_balance) != 0
+		|| __w2e_server__iptables_add(iface, "udp", "--dport", "43520:43775", num_or_balance) != 0
+	)
+	{
+		w2e_print_error("rule create error\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+
 int main(int argc, char** argv)
 {
-	int			val;
+	int			ret = 0;
 	const char	ini_default[] = W2E_INI_DEFAULT_NAME;
 	const char	*ini_fname = ini_default;
 
+	/****************************************************************
+	 * INITIALIZATION.
+	 ***************************************************************/
 
 	/**
 	 * Print art.
 	 */
 	printf("%s\n\n", w2e_art__combined_sml);
 
-	w2e_log_printf("Server is starting...\n");
-
-
 	/**
 	 * SIGINT handler.
 	 */
 	signal(SIGINT, __w2e_server__sig_handler);
-
-
-	/**
-	 * Conntrack init.
-	 */
-	if (w2e_conntrack__init() != 0)
-	{
-		w2e_print_error("Conntrack init error\n");
-		return 1;
-	}
-
-
-	/**
-	 * TX raw socket init.
-	 */
-	/** Create socket. */
-	sock_tx = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-	if (sock_tx < 0)
-	{
-		w2e_print_error("Socket init error\n");
-		return 1;
-	}
-	/** Bind to configured interface //@TODO from config */
-	const char* interface_name = "ens4";
-	if (setsockopt(sock_tx, SOL_SOCKET, SO_BINDTODEVICE, interface_name, strlen(interface_name)) < 0)
-	{
-		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", interface_name);
-		return 1;
-	}
-	////** Set flag so socket expects us to provide IPv4 header. */
-	///val = 1;
-	///if (setsockopt(sock_tx, IPPROTO_IP, IP_HDRINCL, &val, sizeof(val)) < 0)
-	///{
-	///	w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
-	///	return 1;
-	///}
-	/** Set flag so socket will not discover path MTU. */
-	val = 0;
-	if (setsockopt(sock_tx, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0)
-	{
-		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
-		return 1;
-	}
-	/** Test if the socket is in blocking mode. */
-	if (!(fcntl(sock_tx, F_GETFL) & O_NONBLOCK))
-	{
-		/** Put the socket in non-blocking mode. */
-		if (fcntl(sock_tx, F_SETFL, fcntl(sock_tx, F_GETFL) | O_NONBLOCK) < 0)
-		{
-			w2e_print_error("fcntl() failed to set O_NONBLOCK\n");
-			return 1;
-		}
-	}
-
 
 	/**
 	 * INI parser.
@@ -586,9 +883,38 @@ int main(int argc, char** argv)
 	if (ini_parse(ini_fname, __w2e_server__ini_handler, &w2e_ctx) != 0)
 	{
 		w2e_print_error("INI: Error in file %s\n", ini_fname);
-		return 1;
+		ret = 1;
+		goto exit_return;
 	}
 
+	/**
+	 * iptables rules create.
+	 */
+	if(__w2e_server__iptables_init() != 0)
+	{
+		w2e_print_error("iptables rules create error\n");
+		ret = 1;
+		goto exit_return;
+	}
+
+	/**
+	 * Counters.
+	 */
+	if(__w2e_server__counters_init() != 0)
+	{
+		w2e_print_error("shmm init error\n");
+		goto exit_return;
+	}
+
+	/**
+	 * Conntrack init.
+	 */
+	if (w2e_conntrack__init() != 0)
+	{
+		w2e_print_error("Conntrack init error\n");
+		ret = 1;
+		goto exit_shmm_deinit;
+	}
 
 	/**
 	 * Crypto lib init.
@@ -607,71 +933,112 @@ int main(int argc, char** argv)
 				&(w2e_ctx.client_ctx[i].handle)) != 0)
 			{
 				w2e_print_error("Crypto init error\n");
-				return 1;
+
+
+				for (int j = 0; j < i; j++)
+				{
+					w2e_crypto__deinit(&(w2e_ctx.client_ctx[j].handle));
+				}
+				ret = 1;
+				goto exit_conntrack_deinit;
 			}
 		}
 	}
 
+	/**
+	 * Create raw sockets.
+	 */
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		/** Socket */
+		nfqueue_ctx[i].sock_tx = __w2e_server__sock_init();
+		if (nfqueue_ctx[i].sock_tx == -1)
+		{
+			w2e_print_error("Error create socket %d\n", i);
+
+			for (int j = 0; j < i; j++)
+			{
+				close(nfqueue_ctx[j].sock_tx);
+			}
+			ret = 1;
+			goto exit_crypto_deinit;
+		}
+	}
+
+	/** Create NFQUEUEs */
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		if (__w2e_server__nfqueue_init(&(nfqueue_ctx[i]), i) != 0)
+		{
+			w2e_print_error("Error create NFQUEUE %d\n", i);
+
+			for (int j = 0; j < i; j++)
+			{
+				__w2e_server__nfqueue_deinit(&(nfqueue_ctx[j]));
+			}
+			ret = 1;
+			goto exit_close_sockets;
+		}
+	}
+
+
+	/****************************************************************
+	 * OPERATION START.
+	 ***************************************************************/
+
+	w2e_log_printf("Operation START\n");
 
 	/**
-	 * NFQUEUE init.
+	 * Start workers.
 	 */
-
-	w2e_log_printf("Opening library handle\n");
-	h = nfq_open();
-	if (!h)
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
 	{
-		w2e_print_error("Error during nfq_open()\n");
-		exit(1);
+		pthread_create(&(nfqueue_workers[i]), NULL, __w2e_server__worker_main, &(nfqueue_ctx[i]));
 	}
-
-	w2e_log_printf("Unbinding existing nf_queue handler for AF_INET (if any)\n");
-	if (nfq_unbind_pf(h, AF_INET) < 0)
-	{
-		w2e_print_error("Error during nfq_unbind_pf()\n");
-		exit(1);
-	}
-
-	w2e_log_printf("Binding nfnetlink_queue as nf_queue handler for AF_INET\n");
-	if (nfq_bind_pf(h, AF_INET) < 0)
-	{
-		w2e_print_error("Error during nfq_bind_pf()\n");
-		exit(1);
-	}
-
-	w2e_log_printf("Binding this socket to queue '0'\n");
-	qh = nfq_create_queue(h, 0, &__w2e_server__cb, NULL);
-	if (!qh)
-	{
-		w2e_print_error("Error during nfq_create_queue()\n");
-		exit(1);
-	}
-
-	w2e_log_printf("Setting copy_packet mode\n");
-	if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 0xffff) < 0)
-	{
-		w2e_print_error("Can't set packet_copy mode\n");
-		exit(1);
-	}
-
-	w2e_log_printf("Setting queue length\n");
-	if (nfq_set_queue_maxlen(qh, 0xFFFFFFFF) < 0)
-	{
-		w2e_print_error("Can't set packet_copy mode\n");
-		exit(1);
-	}
-
-	fd = nfq_fd(h);
-
 
 	/**
-	 * Start.
+	 * Wait for workers.
 	 */
-	__w2e_server__worker_main(NULL);
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		pthread_join(nfqueue_workers[i], NULL);
+	}
 
 
+	/****************************************************************
+	 * DEINITIALIZATION.
+	 ***************************************************************/
+
+/*exit_nfqueue_deinit:*/
+	w2e_log_printf("Deinitialize NFQUEUES\n");
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		__w2e_server__nfqueue_deinit(&(nfqueue_ctx[i]));
+	}
+
+exit_close_sockets:
+	w2e_log_printf("Deinitialize sockets\n");
+	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
+	{
+		close(nfqueue_ctx[i].sock_tx);
+	}
+
+exit_crypto_deinit:
+	w2e_log_printf("Deinitialize crypto\n");
+	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
+	{
+		w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle));
+	}
+
+exit_conntrack_deinit:
+	w2e_log_printf("Deinitialize conntrack\n");
+	w2e_conntrack__deinit();
+
+exit_shmm_deinit:
+	w2e_log_printf("Deinitialize shmm\n");
+	__w2e_server__counters_deinit();
+
+exit_return:
 	w2e_log_printf("Exiting now\n");
-
-
-	return 0;
+	return ret;
 }
