@@ -99,16 +99,16 @@ cmake --build build
 1. Set up firewall rule `allow udp:43520-43775`
 1. Set static external and internal IP
 1. Inside VM
-  1. Enlarge MTU `sudo ip l s dev ens4 mtu 1500`
-  1. Turn offloads off `sudo ethtool -K ens4 tx off sg off tso off gro off rx-gro-hw off`
-  1. Turn IPv6 off `sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1; sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1`
-  1. Install git `sudo apt install git -y`
-  1. Clone the code `git clone https://github.com/6uoMycop/W2E.git`
-  1. `cd W2E/`
-  1. Install dependencies and build (see above)
-  1. `cd build/w2e_server/`
-  1. Check IP address `ip a` and adjust config `vim ./default.config`
-  1. Run server `sudo nohup ./w2e_server &`
+    - Enlarge MTU `sudo ip l s dev ens4 mtu 1500`
+    - Turn offloads off `sudo ethtool -K ens4 tx off sg off tso off gro off rx-gro-hw off`
+    - Turn IPv6 off `sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1; sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1`
+    - Install git `sudo apt install git -y`
+    - Clone the code `git clone https://github.com/6uoMycop/W2E.git`
+    - `cd W2E/`
+    - Install dependencies and build (see above)
+    - `cd build/w2e_server/`
+    - Check IP address `ip a` and adjust config `vim ./default.config`
+    - Run server `sudo nohup ./w2e_server &`
 
 #### Free tier
 
