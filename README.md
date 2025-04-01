@@ -48,7 +48,7 @@ If none provided, program will try to use `default.config`.
 **Dependencies:**
 
 ```
-sudo apt install -y build-essential git cmake ninja-build libnetfilter-queue-dev libnetfilter-queue1 iptables
+sudo apt install -y build-essential git cmake ninja-build libnetfilter-queue-dev libnetfilter-queue1 iptables xxd
 ```
 
 ### Build
