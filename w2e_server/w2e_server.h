@@ -127,6 +127,11 @@ typedef struct {
 	uint32_t				ip_server;
 
 	/**
+	 * INI configured // Local server's interface name.
+	 */
+	char					iface_server[IFNAMSIZ];
+
+	/**
 	 * Clients' contexts. Index in this array is client's ID.
 	 */
 	w2e_cfg_client_ctx_t	client_ctx[W2E_MAX_CLIENTS];
