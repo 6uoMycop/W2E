@@ -681,7 +681,7 @@ static int __w2e_server__sock_init()
 	val = 0;
 	if (setsockopt(s, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0)
 	{
-		w2e_print_error("setsockopt() failed to set IP_HDRINCL\n");
+		w2e_print_error("setsockopt() failed to set IP_MTU_DISCOVER\n");
 		return -1;
 	}
 	/** Test if the socket is in blocking mode. */
@@ -830,7 +830,6 @@ static int __w2e_server__iptables_add(
 static int __w2e_server__iptables_init()
 {
 	char num_or_balance[5] = "0";
-	const char iface[] = "ens4"; /** @TODO get rid of hardcode */
 
 #if W2E_SERVER_NFQUEUE_NUM < 1 || W2E_SERVER_NFQUEUE_NUM > 99
 #error "W2E_SERVER_NFQUEUE_NUM must be at most 2 digits long"
@@ -843,15 +842,15 @@ static int __w2e_server__iptables_init()
 	w2e_dbg_printf("num_or_balance: \'%s\'\n", num_or_balance);
 
 	/** Flush all, then: */
-	/** HTTPS: iptables -t raw -A PREROUTING -p tcp --sport 443         -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
-	/** HTTP:  iptables -t raw -A PREROUTING -p tcp --sport 80          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
-	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
-	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i ens4 -j NFQUEUE --queue-bypass --queue-balance 0:x */
+	/** HTTPS: iptables -t raw -A PREROUTING -p tcp --sport 443         -i <iface> -j NFQUEUE --queue-bypass [--queue-balance 0:x | --queue-num 0] */
+	/** HTTP:  iptables -t raw -A PREROUTING -p tcp --sport 80          -i <iface> -j NFQUEUE --queue-bypass [--queue-balance 0:x | --queue-num 0] */
+	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i <iface> -j NFQUEUE --queue-bypass [--queue-balance 0:x | --queue-num 0] */
+	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i <iface> -j NFQUEUE --queue-bypass [--queue-balance 0:x | --queue-num 0] */
 	if (__w2e_server__iptables_flush()
-		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "443", num_or_balance) != 0
-		|| __w2e_server__iptables_add(iface, "tcp", "--sport", "80", num_or_balance) != 0
-		|| __w2e_server__iptables_add(iface, "udp", "--sport", "53", num_or_balance) != 0
-		|| __w2e_server__iptables_add(iface, "udp", "--dport", "43520:43775", num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "tcp", "--sport", "443",			num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "tcp", "--sport", "80",			num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "udp", "--sport", "53",			num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "udp", "--dport", "43520:43775",	num_or_balance) != 0
 	)
 	{
 		w2e_print_error("rule create error\n");
