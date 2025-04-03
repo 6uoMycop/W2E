@@ -636,7 +636,7 @@ static void* __w2e_server__worker_main(void* data)
 		}
 		else
 		{
-			w2e_print_error("recv() error %s\n", strerror(errno));
+			w2e_print_error("recv() error (errno= %d)\n", errno);
 		}
 	}
 
