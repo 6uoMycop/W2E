@@ -16,7 +16,7 @@
 
 
 # Timestamp 64-bit
-xxd -c 8 -g 8 -l 8 -e /tmp/.w2e_ctrs_shmm.bin | awk '{printf "%d\n", "0x" $2}' | date
+xxd -c 8 -g 8 -l 8 -e /tmp/.w2e_ctrs_shmm.bin | awk '{printf "%d\n", "0x" $2}' | awk '{system("date -d @" $1)}'
 
 # All subsequent fields (32-bit)
 xxd -c 4 -g 4 -s 8 -e /tmp/.w2e_ctrs_shmm.bin | awk '{printf "%d\n", "0x" $2}'
