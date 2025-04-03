@@ -221,7 +221,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 	}
 	else if (MATCH("server", "iface"))
 	{
-		if (strlen(value) < IFNAMSIZ - 1)
+		if (strlen(value) >= IFNAMSIZ)
 		{
 			w2e_print_error("INI: [server] iface: wrong interface name length. %s given\n", value);
 			return 0;
@@ -671,7 +671,7 @@ static int __w2e_server__sock_init()
 		w2e_print_error("Socket init error\n");
 		return -1;
 	}
-	/** Bind to configured interface //@TODO from config */
+	/** Bind to configured interface */
 	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, w2e_ctx.iface_server, strlen(w2e_ctx.iface_server)) < 0)
 	{
 		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", w2e_ctx.iface_server);
