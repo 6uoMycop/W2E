@@ -847,9 +847,9 @@ static int __w2e_server__iptables_init()
 	/** DNS:   iptables -t raw -A PREROUTING -p udp --sport 53          -i <iface> -j NFQUEUE --queue-bypass [--queue-balance 0:x | --queue-num 0] */
 	/** W2E:   iptables -t raw -A PREROUTING -p udp --dport 43520:43775 -i <iface> -j NFQUEUE --queue-bypass [--queue-balance 0:x | --queue-num 0] */
 	if (__w2e_server__iptables_flush()
-		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "tcp", "--sport", "443",			num_or_balance) != 0
-		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "tcp", "--sport", "80",			num_or_balance) != 0
-		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "udp", "--sport", "53",			num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "tcp", "--sport", "443",		num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "tcp", "--sport", "80",		num_or_balance) != 0
+		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "udp", "--sport", "53",		num_or_balance) != 0
 		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "udp", "--dport", "43520:43775",	num_or_balance) != 0
 	)
 	{
