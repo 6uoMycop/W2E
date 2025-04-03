@@ -1037,7 +1037,11 @@ exit_crypto_deinit:
 	w2e_log_printf("Deinitialize crypto\n");
 	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
 	{
-		w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle));
+		/** If client is configured */
+		if (w2e_ctx.client_ctx[i].is_configured)
+		{
+			w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle));
+		}
 	}
 
 exit_conntrack_deinit:
