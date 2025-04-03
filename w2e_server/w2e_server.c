@@ -219,6 +219,17 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 
 		w2e_log_printf("\tINI: [server] ip: %s (Net order 0x%08X)\n", value, pconfig->ip_server);
 	}
+	else if (MATCH("server", "iface"))
+	{
+		if (strlen(value) < IFNAMSIZ - 1)
+		{
+			w2e_print_error("INI: [server] iface: wrong interface name length. %s given\n", value);
+			return 0;
+		}
+		strcpy(pconfig->iface_server, value);
+
+		w2e_log_printf("\tINI: [server] iface: %s\n", value);
+	}
 	else if (MATCH("server", "dns"))
 	{
 		tmp_len = strlen(value);
@@ -661,10 +672,9 @@ static int __w2e_server__sock_init()
 		return -1;
 	}
 	/** Bind to configured interface //@TODO from config */
-	const char* interface_name = "eth0";
-	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, interface_name, strlen(interface_name)) < 0)
+	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, w2e_ctx.iface_server, strlen(w2e_ctx.iface_server)) < 0)
 	{
-		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", interface_name);
+		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", w2e_ctx.iface_server);
 		return -1;
 	}
 	/** Set flag so socket will not discover path MTU. */
