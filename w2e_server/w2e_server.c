@@ -698,13 +698,6 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 		return 1;
 	}
 
-	w2e_log_printf("Setting socket buffer size to %d\n", W2E_SERVER_QUEUE_BUFSIZ);
-	if (nfnl_rcvbufsiz(ctx->h, W2E_SERVER_QUEUE_BUFSIZ) < 0)
-	{
-		w2e_error_printf("Can't set packet_copy mode\n");
-		return 1;
-	}
-
 	w2e_log_printf("Setting queue length to %d\n", W2E_SERVER_QUEUE_BUFSIZ / W2E_MAX_PACKET_SIZE);
 	if (nfq_set_queue_maxlen(ctx->qh, W2E_SERVER_QUEUE_BUFSIZ / W2E_MAX_PACKET_SIZE) < 0)
 	{
