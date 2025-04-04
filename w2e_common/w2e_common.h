@@ -33,10 +33,6 @@
  * Default constants.
  */
 
-///#ifndef W2E_HOST_MAXLEN
-///#define W2E_HOST_MAXLEN 253
-///#endif // !W2E_HOST_MAXLEN
-
 #ifndef W2E_MAX_PACKET_SIZE
 /**
  * Effective packet length is reduced because of insertion of new headers.

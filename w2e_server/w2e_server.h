@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <libnfnetlink/libnfnetlink.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
 #include <linux/types.h>

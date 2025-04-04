@@ -89,7 +89,7 @@ static void* __w2e_conntrack__gc_worker(void* vptr_args)
 			}
 		}
 
-		sleep(W2E_CT_SESSION_TTL >> 1);
+		sleep(W2E_CT_SESSION_TTL / 20);
 	}
 
 	return NULL;

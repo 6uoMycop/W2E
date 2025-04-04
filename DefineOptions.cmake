@@ -15,6 +15,8 @@ add_compile_definitions(W2E_MAX_CLIENTS=10)
 
 add_compile_definitions(W2E_CT_SESSION_TTL=600)
 
+# Set max packet size to MTU
+add_compile_definitions(W2E_MAX_PACKET_SIZE=1500)
 
 # Number of NFQUEUEs (and threads - 1 per queue) on server. IN RANGE [1,99]
 add_compile_definitions(W2E_SERVER_NFQUEUE_NUM=1)

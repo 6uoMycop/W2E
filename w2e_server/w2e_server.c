@@ -599,8 +599,7 @@ static void* __w2e_server__worker_main(void* data)
 		rv = recv(ctx->fd, buf, sizeof(buf), 0);
 		if (rv >= 0)
 		{
-			//w2e_dbg_printf("pkt received\n");
-			nfq_handle_packet(ctx->h, buf, rv); //@TODO
+			nfq_handle_packet(ctx->h, buf, rv);
 		}
 		else
 		{
@@ -608,7 +607,7 @@ static void* __w2e_server__worker_main(void* data)
 		}
 	}
 
-	w2e_log_printf("worker main exit\n");
+	w2e_log_printf("worker exit (NFQUEUE id %d)\n", ctx->id);
 	return NULL;
 }
 
