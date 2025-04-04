@@ -271,7 +271,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 	struct sockaddr_in				sin = { .sin_family = AF_INET, .sin_port = 0, .sin_addr = { 0 } };
 	uint16_t						id_client = 0;
 	w2e_ct_entry_t					*ct = NULL;
-	w2e_nfqueue_ctx* ctx = (w2e_nfqueue_ctx*)data;
+	w2e_nfqueue_ctx*				ctx = (w2e_nfqueue_ctx*)data;
 
 	(void)nfmsg;
 
@@ -530,7 +530,6 @@ send_modified:
 	{
 		w2e_ctrs.err_tx++;
 		w2e_print_error("Sendto failed! Length %d. Drop\n", len_send);
-		perror("sendto() failed ");
 		w2e_dbg_dump(len_send, pkt1);
 	}
 	else
@@ -575,48 +574,6 @@ static void __w2e_server__deinit()
 	 * Stop server worker.
 	 */
 	server_stop = 1;
-
-#if 0 // already deinitializes in main
-	/**
-	 * Conntrack deinit.
-	 */
-	if (w2e_conntrack__deinit() != 0)
-	{
-		w2e_print_error("Conntrack deinit error\n");
-	}
-
-	/**
-	 * NFQUEUE deinit.
-	 */
-	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
-	{
-		__w2e_server__nfqueue_deinit(&(nfqueue_ctx[i]));
-	}
-
-	/**
-	 * Crypto lib deinit.
-	 */
-	/** For all clients */
-	for (int i = 0; i < W2E_MAX_CLIENTS; i++)
-	{
-		/** If client is configured */
-		if (w2e_ctx.client_ctx[i].is_configured)
-		{
-			/** Denit crypto lib */
-			w2e_crypto__deinit(&(w2e_ctx.client_ctx[i].handle));
-			/** Zero ctx */
-			memset(&(w2e_ctx.client_ctx[i]), 0, sizeof(w2e_cfg_client_ctx_t));
-		}
-	}
-
-	/**
-	 * Close socket descriptor.
-	 */
-	for (int i = 0; i < W2E_SERVER_NFQUEUE_NUM; i++)
-	{
-		close(nfqueue_ctx[i].sock_tx);
-	}
-#endif /* 0 */
 }
 
 void __w2e_server__sig_handler(int n)
@@ -727,7 +684,7 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 	}
 
 	ctx->id = id;
-	w2e_log_printf("Binding the program to queue %d (total %d)\n", ctx->id, W2E_SERVER_NFQUEUE_NUM);
+	w2e_log_printf("Binding to queue %d (total %d)\n", ctx->id, W2E_SERVER_NFQUEUE_NUM);
 	ctx->qh = nfq_create_queue(ctx->h, ctx->id, &__w2e_server__cb, ctx);
 	if (!ctx->qh)
 	{
@@ -736,14 +693,21 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 	}
 
 	w2e_log_printf("Setting copy_packet mode\n");
-	if (nfq_set_mode(ctx->qh, NFQNL_COPY_PACKET, 0xffff) < 0)
+	if (nfq_set_mode(ctx->qh, NFQNL_COPY_PACKET, W2E_MAX_PACKET_SIZE) < 0)
 	{
 		w2e_print_error("Can't set packet_copy mode\n");
 		return 1;
 	}
 
-	w2e_log_printf("Setting queue length\n");
-	if (nfq_set_queue_maxlen(ctx->qh, 0xFFFFFFFF) < 0)
+	w2e_log_printf("Setting socket buffer size to %d\n", W2E_SERVER_QUEUE_BUFSIZ);
+	if (nfnl_rcvbufsiz(ctx->h, W2E_SERVER_QUEUE_BUFSIZ) < 0)
+	{
+		w2e_print_error("Can't set packet_copy mode\n");
+		return 1;
+	}
+
+	w2e_log_printf("Setting queue length to %d\n", W2E_SERVER_QUEUE_BUFSIZ / W2E_MAX_PACKET_SIZE);
+	if (nfq_set_queue_maxlen(ctx->qh, W2E_SERVER_QUEUE_BUFSIZ / W2E_MAX_PACKET_SIZE) < 0)
 	{
 		w2e_print_error("Can't set packet_copy mode\n");
 		return 1;

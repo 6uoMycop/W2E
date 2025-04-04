@@ -57,6 +57,12 @@
 #define W2E_SERVER_NFQUEUE_NUM 1
 #endif // !W2E_SERVER_NFQUEUE_NUM
 
+#ifndef W2E_SERVER_QUEUE_BUFSIZ
+ /**
+  * Queue buffer size on server (uint).
+  */
+#define W2E_SERVER_QUEUE_BUFSIZ 65535
+#endif // !W2E_SERVER_QUEUE_BUFSIZ
 
 #ifdef W2E_SERVER_WITH_SHMM_CTRS
 

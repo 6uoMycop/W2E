@@ -33,9 +33,9 @@
  * Default constants.
  */
 
-#ifndef W2E_HOST_MAXLEN
-#define W2E_HOST_MAXLEN 253
-#endif // !W2E_HOST_MAXLEN
+///#ifndef W2E_HOST_MAXLEN
+///#define W2E_HOST_MAXLEN 253
+///#endif // !W2E_HOST_MAXLEN
 
 #ifndef W2E_MAX_PACKET_SIZE
 /**

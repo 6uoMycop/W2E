@@ -19,6 +19,8 @@ add_compile_definitions(W2E_CT_SESSION_TTL=600)
 # Number of NFQUEUEs (and threads - 1 per queue) on server. IN RANGE [1,99]
 add_compile_definitions(W2E_SERVER_NFQUEUE_NUM=1)
 
+add_compile_definitions(W2E_SERVER_QUEUE_BUFSIZ=1048575)
+
 # Write server counters to shared memory
 add_compile_definitions(W2E_SERVER_WITH_SHMM_CTRS)
 
