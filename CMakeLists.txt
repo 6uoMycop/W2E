@@ -1,6 +1,6 @@
 ﻿# CMakeList.txt: файл проекта CMake верхнего уровня
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.21)
 
 # Включение горячей перезагрузки для компиляторов MSVC, если поддерживается.
 if (POLICY CMP0141)

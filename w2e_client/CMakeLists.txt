@@ -3,9 +3,7 @@
 
 add_executable (w2e_client "w2e_client.c" "w2e_client.h")
 
-if (CMAKE_VERSION VERSION_GREATER 3.21)
-	set_property(TARGET w2e_client PROPERTY C_STANDARD 17)
-endif()
+set_property(TARGET w2e_client PROPERTY C_STANDARD 17)
 
 # Copy DLL and SYS to be near EXE
 file(COPY "${CMAKE_HOME_DIRECTORY}/deps/WinDivert/x64/WinDivert.dll" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

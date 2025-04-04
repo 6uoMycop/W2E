@@ -89,7 +89,7 @@ static void* __w2e_conntrack__gc_worker(void* vptr_args)
 			}
 		}
 
-		sleep(W2E_CT_SESSION_TTL / 20);
+		sleep(W2E_CT_GC_SLEEP_SEC);
 	}
 
 	return NULL;
@@ -411,7 +411,7 @@ int w2e_conntrack__deinit(void)
 	w2e_ct_entry_t* ct = NULL;
 	w2e_ct_entry_t* tmp = NULL;
 
-	w2e_log_printf("Conntrack deinitialization...\n");
+	w2e_log_printf("Conntrack deinitialization... Will take %d seconds max... Wait\n", W2E_CT_GC_SLEEP_SEC);
 
 	if (!w2e_ct)
 	{

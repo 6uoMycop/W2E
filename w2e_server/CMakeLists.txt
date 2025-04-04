@@ -3,11 +3,7 @@
 
 add_executable (w2e_server "w2e_server.c" "w2e_server.h")
 
-if (CMAKE_VERSION VERSION_GREATER 3.21)
-	set_property(TARGET w2e_server PROPERTY C_STANDARD 17)
-elseif (CMAKE_VERSION VERSION_GREATER 3.1)
-	set_property(TARGET w2e_server PROPERTY C_STANDARD 11)
-endif()
+set_property(TARGET w2e_server PROPERTY C_STANDARD 17)
 
 if(MSVC)
 	message(FATAL_ERROR "w2e_server is a Linux app")

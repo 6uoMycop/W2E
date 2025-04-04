@@ -39,6 +39,10 @@
  */
 #define W2E_CT_BUCKETS (1 << W2E_CT_HASHSIZE)
 
+/**
+ * Garbage collector sleep time
+ */
+#define W2E_CT_GC_SLEEP_SEC (W2E_CT_SESSION_TTL / 20)
 
 /**
  * The 5-tuple structure.

@@ -9,11 +9,7 @@ target_link_libraries(w2e_crypto
 	PUBLIC crypto
 )
 
-if (CMAKE_VERSION VERSION_GREATER 3.21)
-	set_property(TARGET w2e_crypto PROPERTY C_STANDARD 17)
-elseif (CMAKE_VERSION VERSION_GREATER 3.1)
-	set_property(TARGET w2e_crypto PROPERTY C_STANDARD 11)
-endif()
+set_property(TARGET w2e_crypto PROPERTY C_STANDARD 17)
 
 
 #if (MSVC)

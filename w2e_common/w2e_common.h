@@ -122,17 +122,42 @@
 
 /**
  * Counters.
+ * If on Linux, use _Atomic (@TODO add MSVC support)
  */
 typedef struct {
 	time_t               ts;		/* Timestamp */
-	_Atomic unsigned int total_rx;	/* Total received packets */
-	_Atomic unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
-	_Atomic unsigned int ok_rx;		/* Correct packets received */
-	_Atomic unsigned int ok_tx;		/* Correct packets sent */
-	_Atomic unsigned int err_rx;	/* Malformed packets received */
-	_Atomic unsigned int err_tx;	/* Packets loss on send */
-	_Atomic unsigned int encap;		/* Number of encapsulated packets */
-	_Atomic unsigned int decap;		/* Number of decapsulated packets */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int total_rx;	/* Total received packets */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int total_tx;	/* Total sent packets (attempts: including errors in err_tx) */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int ok_rx;		/* Correct packets received */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int ok_tx;		/* Correct packets sent */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int err_rx;	/* Malformed packets received */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int err_tx;	/* Packets loss on send */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int encap;		/* Number of encapsulated packets */
+#ifndef _MSC_VER
+	_Atomic
+#endif //!_MSC_VER
+	unsigned int decap;		/* Number of decapsulated packets */
 } w2e_ctrs_t;
 
 /**
