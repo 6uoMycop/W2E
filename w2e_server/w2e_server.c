@@ -59,7 +59,7 @@ static void* __w2e_server__shmm_ctrs_worker(void* vptr_args)
 	{
 		if (!ctrs_shmm)
 		{
-			w2e_print_error("__w2e_server__shmm_ctrs_worker() error: shmm is NULL. Thread terminating\n");
+			w2e_error_printf("__w2e_server__shmm_ctrs_worker() error: shmm is NULL. Thread terminating\n");
 			return NULL;
 		}
 
@@ -86,7 +86,7 @@ static int __w2e_server__counters_init()
 	ctrs_shmm_fd = open(W2E_SERVER_SHMM_CTRS_FILEPATH, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
 	if (ctrs_shmm_fd == -1)
 	{
-		w2e_print_error("Error opening file for writing shmm counters");
+		w2e_error_printf("Error opening file for writing shmm counters");
 		return -1;
 	}
 	/*
@@ -95,7 +95,7 @@ static int __w2e_server__counters_init()
 	if (lseek(ctrs_shmm_fd, sizeof(w2e_ctrs_t) - 1, SEEK_SET) == -1)
 	{
 		close(ctrs_shmm_fd);
-		w2e_print_error("Error calling lseek()");
+		w2e_error_printf("Error calling lseek()");
 		return -1;
 	}/* Something needs to be written at the end of the file to
 	 * have the file actually have the new size.
@@ -110,7 +110,7 @@ static int __w2e_server__counters_init()
 	if (write(ctrs_shmm_fd, "", 1) != 1)
 	{
 		close(ctrs_shmm_fd);
-		w2e_print_error("Error writing last byte of the file");
+		w2e_error_printf("Error writing last byte of the file");
 		return -1;
 	}
 
@@ -118,7 +118,7 @@ static int __w2e_server__counters_init()
 	if (ctrs_shmm == MAP_FAILED)
 	{
 		close(ctrs_shmm_fd);
-		w2e_print_error("Error mmapping the file");
+		w2e_error_printf("Error mmapping the file");
 		return -1;
 	}
 
@@ -141,7 +141,7 @@ void __w2e_server__counters_deinit()
 	/* Free the mmapped memory */
 	if (munmap(ctrs_shmm, sizeof(w2e_ctrs_t)) == -1)
 	{
-		w2e_print_error("Error un-mmapping the file");
+		w2e_error_printf("Error un-mmapping the file");
 	}
 
 	/* Un-mmaping doesn't close the file, so we still need to do that.
@@ -187,7 +187,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 		tmp_id = atoi(value);
 		if (pconfig->client_ctx[tmp_id].is_configured)
 		{
-			w2e_print_error("INI: [client] id: Client ID %s duplicates in configuration file\n", value);
+			w2e_error_printf("INI: [client] id: Client ID %s duplicates in configuration file\n", value);
 			return 0;
 		}
 
@@ -203,7 +203,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 		tmp_len = strlen(value) - 1;
 		if (tmp_len != W2E_KEY_LEN)
 		{
-			w2e_print_error("INI: [client] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
+			w2e_error_printf("INI: [client] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
 		}
 		memcpy(pconfig->client_ctx[tmp_id].key, value, W2E_KEY_LEN);
 
@@ -213,7 +213,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 	{
 		if (inet_pton(AF_INET, value, &(pconfig->ip_server)) != 1)
 		{
-			w2e_print_error("INI: [server] ip: wrong IP %s\n", value);
+			w2e_error_printf("INI: [server] ip: wrong IP %s\n", value);
 			return 0;
 		}
 
@@ -223,7 +223,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 	{
 		if (strlen(value) >= IFNAMSIZ)
 		{
-			w2e_print_error("INI: [server] iface: wrong interface name length. %s given\n", value);
+			w2e_error_printf("INI: [server] iface: wrong interface name length. %s given\n", value);
 			return 0;
 		}
 		strcpy(pconfig->iface_server, value);
@@ -239,7 +239,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 		}
 		else if (inet_pton(AF_INET, value, &(pconfig->ip_dns)) != 1)
 		{
-			w2e_print_error("INI: [server] dns: wrong IP %s\n", value);
+			w2e_error_printf("INI: [server] dns: wrong IP %s\n", value);
 			return 0;
 		}
 
@@ -247,7 +247,7 @@ static int __w2e_server__ini_handler(void* cfg, const char* section, const char*
 	}
 	else
 	{
-		w2e_print_error("INI: unknown section/name, error\n");
+		w2e_error_printf("INI: unknown section/name, error\n");
 		return 0;
 	}
 #undef MATCH
@@ -283,7 +283,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 	len_recv = nfq_get_payload(nfa, &pkt);
 	if (len_recv < 0)
 	{
-		w2e_print_error("nfq_get_payload() error\n");
+		w2e_error_printf("nfq_get_payload() error\n");
 		w2e_ctrs.err_rx++;
 		w2e_ctrs.total_tx++;
 		return nfq_set_verdict(qhandle, id, NF_ACCEPT, 0, NULL);
@@ -319,7 +319,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		//w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->dest) & (uint16_t)(0xFF00), hdr_ip->saddr);
 		if (!w2e_ctx.client_ctx[id_client].is_configured) /** Client not configured - drop */
 		{
-			w2e_print_error("Malformed packet! Client port 0x%04X, not configured. Drop\n", ntohs(hdr_udp->source));
+			w2e_dbg_printf("Malformed packet! Client port 0x%04X, not configured. Drop\n", ntohs(hdr_udp->source));
 			w2e_ctrs.err_rx++;
 			goto drop;
 		}
@@ -348,7 +348,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		 */
 		if (!w2e_common__validate_dec(pkt1))
 		{
-			w2e_print_error("Validation: Malformed packet (possibly wrong key)! Drop. Client port is 0x%04X\n",
+			w2e_error_printf("Validation: Malformed packet (possibly wrong key)! Drop. Client port is 0x%04X\n",
 							ntohs(hdr_udp->source));
 			w2e_ctrs.err_rx++;
 			goto drop;
@@ -397,7 +397,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		}
 		else
 		{
-			w2e_print_error("WARN: id_client=%d unknown transport protocol 0x%02X)\n", id_client, hdr_dec_ip->protocol);
+			w2e_error_printf("WARN: id_client=%d unknown transport protocol 0x%02X)\n", id_client, hdr_dec_ip->protocol);
 		}
 
 		/**
@@ -529,7 +529,7 @@ send_modified:
 	if (sendto(ctx->sock_tx, pkt1, len_send, 0, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0)
 	{
 		w2e_ctrs.err_tx++;
-		w2e_print_error("Sendto failed! Length %d. Drop\n", len_send);
+		w2e_error_printf("Sendto failed! Length %d. Drop\n", len_send);
 		w2e_dbg_dump(len_send, pkt1);
 	}
 	else
@@ -604,7 +604,7 @@ static void* __w2e_server__worker_main(void* data)
 		}
 		else
 		{
-			w2e_print_error("recv() error (errno= %d)\n", errno);
+			w2e_error_printf("recv() error (errno= %d)\n", errno);
 		}
 	}
 
@@ -625,20 +625,20 @@ static int __w2e_server__sock_init()
 	s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 	if (s < 0)
 	{
-		w2e_print_error("Socket init error\n");
+		w2e_error_printf("Socket init error\n");
 		return -1;
 	}
 	/** Bind to configured interface */
 	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, w2e_ctx.iface_server, strlen(w2e_ctx.iface_server)) < 0)
 	{
-		w2e_print_error("setsockopt() failed SO_BINDTODEVICE %s\n", w2e_ctx.iface_server);
+		w2e_error_printf("setsockopt() failed SO_BINDTODEVICE %s\n", w2e_ctx.iface_server);
 		return -1;
 	}
 	/** Set flag so socket will not discover path MTU. */
 	val = 0;
 	if (setsockopt(s, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0)
 	{
-		w2e_print_error("setsockopt() failed to set IP_MTU_DISCOVER\n");
+		w2e_error_printf("setsockopt() failed to set IP_MTU_DISCOVER\n");
 		return -1;
 	}
 	/** Test if the socket is in blocking mode. */
@@ -647,7 +647,7 @@ static int __w2e_server__sock_init()
 		/** Put the socket in non-blocking mode. */
 		if (fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK) < 0)
 		{
-			w2e_print_error("fcntl() failed to set O_NONBLOCK\n");
+			w2e_error_printf("fcntl() failed to set O_NONBLOCK\n");
 			return -1;
 		}
 	}
@@ -665,21 +665,21 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 	ctx->h = nfq_open();
 	if (!ctx->h)
 	{
-		w2e_print_error("Error during nfq_open()\n");
+		w2e_error_printf("Error during nfq_open()\n");
 		return 1;
 	}
 
 	w2e_log_printf("Unbinding existing nf_queue handler for AF_INET (if any)\n");
 	if (nfq_unbind_pf(ctx->h, AF_INET) < 0)
 	{
-		w2e_print_error("Error during nfq_unbind_pf()\n");
+		w2e_error_printf("Error during nfq_unbind_pf()\n");
 		return 1;
 	}
 
 	w2e_log_printf("Binding nfnetlink_queue as nf_queue handler for AF_INET\n");
 	if (nfq_bind_pf(ctx->h, AF_INET) < 0)
 	{
-		w2e_print_error("Error during nfq_bind_pf()\n");
+		w2e_error_printf("Error during nfq_bind_pf()\n");
 		return 1;
 	}
 
@@ -688,28 +688,28 @@ static int __w2e_server__nfqueue_init(w2e_nfqueue_ctx* ctx, int id)
 	ctx->qh = nfq_create_queue(ctx->h, ctx->id, &__w2e_server__cb, ctx);
 	if (!ctx->qh)
 	{
-		w2e_print_error("Error during nfq_create_queue()\n");
+		w2e_error_printf("Error during nfq_create_queue()\n");
 		return 1;
 	}
 
 	w2e_log_printf("Setting copy_packet mode\n");
 	if (nfq_set_mode(ctx->qh, NFQNL_COPY_PACKET, W2E_MAX_PACKET_SIZE) < 0)
 	{
-		w2e_print_error("Can't set packet_copy mode\n");
+		w2e_error_printf("Can't set packet_copy mode\n");
 		return 1;
 	}
 
 	w2e_log_printf("Setting socket buffer size to %d\n", W2E_SERVER_QUEUE_BUFSIZ);
 	if (nfnl_rcvbufsiz(ctx->h, W2E_SERVER_QUEUE_BUFSIZ) < 0)
 	{
-		w2e_print_error("Can't set packet_copy mode\n");
+		w2e_error_printf("Can't set packet_copy mode\n");
 		return 1;
 	}
 
 	w2e_log_printf("Setting queue length to %d\n", W2E_SERVER_QUEUE_BUFSIZ / W2E_MAX_PACKET_SIZE);
 	if (nfq_set_queue_maxlen(ctx->qh, W2E_SERVER_QUEUE_BUFSIZ / W2E_MAX_PACKET_SIZE) < 0)
 	{
-		w2e_print_error("Can't set packet_copy mode\n");
+		w2e_error_printf("Can't set packet_copy mode\n");
 		return 1;
 	}
 
@@ -730,13 +730,13 @@ static int __w2e_server__iptables_flush()
 
 	if (pid == -1)
 	{
-		w2e_print_error("fork error\n");
+		w2e_error_printf("fork error\n");
 		return 1;
 	}
 	else if (pid == 0)
 	{
 		execvp("iptables", args);
-		w2e_print_error("exec error\n"); /** exec never returns */
+		w2e_error_printf("exec error\n"); /** exec never returns */
 		exit(1);
 	}
 
@@ -772,13 +772,13 @@ static int __w2e_server__iptables_add(
 
 	if (pid == -1)
 	{
-		w2e_print_error("fork error\n");
+		w2e_error_printf("fork error\n");
 		return 1;
 	}
 	else if (pid == 0)
 	{
 		execvp("iptables", args);
-		w2e_print_error("exec error\n"); /** exec never returns */
+		w2e_error_printf("exec error\n"); /** exec never returns */
 		exit(1);
 	}
 
@@ -817,7 +817,7 @@ static int __w2e_server__iptables_init()
 		|| __w2e_server__iptables_add(w2e_ctx.iface_server, "udp", "--dport", "43520:43775",	num_or_balance) != 0
 	)
 	{
-		w2e_print_error("rule create error\n");
+		w2e_error_printf("rule create error\n");
 		return 1;
 	}
 
@@ -855,7 +855,7 @@ int main(int argc, char** argv)
 	w2e_log_printf("INI: Reading config file %s...\n", ini_fname);
 	if (ini_parse(ini_fname, __w2e_server__ini_handler, &w2e_ctx) != 0)
 	{
-		w2e_print_error("INI: Error in file %s\n", ini_fname);
+		w2e_error_printf("INI: Error in file %s\n", ini_fname);
 		ret = 1;
 		goto exit_return;
 	}
@@ -865,7 +865,7 @@ int main(int argc, char** argv)
 	 */
 	if(__w2e_server__iptables_init() != 0)
 	{
-		w2e_print_error("iptables rules create error\n");
+		w2e_error_printf("iptables rules create error\n");
 		ret = 1;
 		goto exit_return;
 	}
@@ -875,7 +875,7 @@ int main(int argc, char** argv)
 	 */
 	if(__w2e_server__counters_init() != 0)
 	{
-		w2e_print_error("shmm init error\n");
+		w2e_error_printf("shmm init error\n");
 		goto exit_return;
 	}
 
@@ -884,7 +884,7 @@ int main(int argc, char** argv)
 	 */
 	if (w2e_conntrack__init() != 0)
 	{
-		w2e_print_error("Conntrack init error\n");
+		w2e_error_printf("Conntrack init error\n");
 		ret = 1;
 		goto exit_shmm_deinit;
 	}
@@ -905,7 +905,7 @@ int main(int argc, char** argv)
 				W2E_KEY_LEN,
 				&(w2e_ctx.client_ctx[i].handle)) != 0)
 			{
-				w2e_print_error("Crypto init error\n");
+				w2e_error_printf("Crypto init error\n");
 
 
 				for (int j = 0; j < i; j++)
@@ -927,7 +927,7 @@ int main(int argc, char** argv)
 		nfqueue_ctx[i].sock_tx = __w2e_server__sock_init();
 		if (nfqueue_ctx[i].sock_tx == -1)
 		{
-			w2e_print_error("Error create socket %d\n", i);
+			w2e_error_printf("Error create socket %d\n", i);
 
 			for (int j = 0; j < i; j++)
 			{
@@ -943,7 +943,7 @@ int main(int argc, char** argv)
 	{
 		if (__w2e_server__nfqueue_init(&(nfqueue_ctx[i]), i) != 0)
 		{
-			w2e_print_error("Error create NFQUEUE %d\n", i);
+			w2e_error_printf("Error create NFQUEUE %d\n", i);
 
 			for (int j = 0; j < i; j++)
 			{

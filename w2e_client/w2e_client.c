@@ -55,7 +55,7 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	{
 		if (inet_pton(AF_INET, value, &(pconfig->ip_client)) != 1)
 		{
-			w2e_print_error("INI: [client] ip: wrong IP %s\n", value);
+			w2e_error_printf("INI: [client] ip: wrong IP %s\n", value);
 			return 0;
 		}
 
@@ -65,7 +65,7 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	{
 		if (inet_pton(AF_INET, value, &(pconfig->ip_server)) != 1)
 		{
-			w2e_print_error("INI: [server] ip: wrong IP %s\n", value);
+			w2e_error_printf("INI: [server] ip: wrong IP %s\n", value);
 			return 0;
 		}
 
@@ -76,7 +76,7 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 		tmp_len = strlen(value) - 1;
 		if (tmp_len != W2E_KEY_LEN)
 		{
-			w2e_print_error("INI: [client] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
+			w2e_error_printf("INI: [client] key: wrong key length (%d). Must be %d\n", tmp_len, W2E_KEY_LEN);
 		}
 		memcpy(pconfig->key, value, W2E_KEY_LEN);
 
@@ -84,7 +84,7 @@ static int __w2e_client__ini_handler(void* cfg, const char* section, const char*
 	}
 	else
 	{
-		w2e_print_error("INI: unknown section/name, error\n");
+		w2e_error_printf("INI: unknown section/name, error\n");
 		return 0;
 	}
 #undef MATCH
@@ -116,17 +116,17 @@ static HANDLE __w2e_client__init(char* filter, UINT64 flags)
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL, errorcode, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), (LPTSTR)&errormessage, 0, NULL);
 
-	w2e_print_error("Error opening filter: %d %s\n", errorcode, errormessage);
+	w2e_error_printf("Error opening filter: %d %s\n", errorcode, errormessage);
 
 	LocalFree(errormessage);
 
 	if (errorcode == 2)
 	{
-		w2e_print_error("The driver files WinDivert32.sys or WinDivert64.sys were not found.\n");
+		w2e_error_printf("The driver files WinDivert32.sys or WinDivert64.sys were not found.\n");
 	}
 	else if (errorcode == 654)
 	{
-		w2e_print_error(
+		w2e_error_printf(
 			"An incompatible version of the WinDivert driver is currently loaded.\n"
 			"Please unload it with the following commands ran as administrator:\n\n"
 			"sc stop windivert\n"
@@ -136,20 +136,20 @@ static HANDLE __w2e_client__init(char* filter, UINT64 flags)
 	}
 	else if (errorcode == 1275)
 	{
-		w2e_print_error(
+		w2e_error_printf(
 			"This error occurs for various reasons, including:\n"
 			"the WinDivert driver is blocked by security software; or\n"
 			"you are using a virtualization environment that does not support drivers.\n");
 	}
 	else if (errorcode == 1753)
 	{
-		w2e_print_error(
+		w2e_error_printf(
 			"This error occurs when the Base Filtering Engine service has been disabled.\n"
 			"Enable Base Filtering Engine service.\n");
 	}
 	else if (errorcode == 577)
 	{
-		w2e_print_error(
+		w2e_error_printf(
 			"Could not load driver due to invalid digital signature.\n"
 			"Windows Server 2016 systems must have secure boot disabled to be \n"
 			"able to load WinDivert driver.\n"
@@ -220,14 +220,14 @@ static BOOL __w2e_client__is_admin()
 
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
 	{
-		w2e_print_error("Failed to get Process Token: %d\n", GetLastError());
+		w2e_error_printf("Failed to get Process Token: %d\n", GetLastError());
 		goto cleanup; /* if Failed, we treat as False */
 	}
 
 
 	if (!GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &dwSize))
 	{
-		w2e_print_error("Failed to get Token Information: %d\n", GetLastError());
+		w2e_error_printf("Failed to get Token Information: %d\n", GetLastError());
 		goto cleanup; /* if Failed, we treat as False */
 	}
 
@@ -259,14 +259,14 @@ static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT pack
 	else
 	{
 		errorcode = GetLastError();
-		w2e_print_error("Error sending unmodified packet! 0x%X\n", errorcode);
+		w2e_error_printf("Error sending unmodified packet! 0x%X\n", errorcode);
 		w2e_ctrs.err_tx++;
 
 		switch (errorcode)
 		{
 		case 1232:
 		{
-			w2e_print_error(
+			w2e_error_printf(
 				"ERROR_HOST_UNREACHABLE: This error occurs when an impostor packet "
 				"(with pAddr->Impostor set to 1) is injected and the ip.TTL or ipv6. "
 				"HopLimit field goes to zero. This is a defense of \"last resort\" against "
@@ -275,7 +275,7 @@ static BOOL __w2e_client__pkt_send(HANDLE handle, const VOID* pPacket, UINT pack
 		}
 		default:
 		{
-			w2e_print_error("Unexpected error 0x%X\n", errorcode);
+			w2e_error_printf("Unexpected error 0x%X\n", errorcode);
 			break;
 		}
 		}
@@ -409,7 +409,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						 */
 						if (!w2e_common__validate_dec(pkt[1]))
 						{
-							w2e_print_error("Validation: Malformed packet (possibly wrong key)! Drop\n");
+							w2e_error_printf("Validation: Malformed packet (possibly wrong key)! Drop\n");
 							w2e_ctrs.err_rx++;
 							continue;
 						}
@@ -424,7 +424,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 								(PWINDIVERT_TCPHDR)(((uint8_t*)(hdr_pre_ip)) + hdr_pre_ip->HdrLength * 4),
 								W2E_TCP_MSS) != 0)
 							{
-								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_error_printf("Unable to set MSS! Drop\n");
 								w2e_ctrs.err_rx++;
 								continue;
 							}
@@ -467,7 +467,7 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 						{
 							if (__w2c_client__tcp_set_mss(hdr_tcp, W2E_TCP_MSS) != 0)
 							{
-								w2e_print_error("Unable to set MSS! Drop\n");
+								w2e_error_printf("Unable to set MSS! Drop\n");
 								w2e_ctrs.err_rx++;
 								continue;
 							}
@@ -531,31 +531,31 @@ static void __w2c_client__main_loop(HANDLE w_filter)
 			}
 			else
 			{
-				w2e_print_error("Error parsing packet!\n");
+				w2e_error_printf("Error parsing packet!\n");
 				w2e_ctrs.err_rx++;
 			}
 		}
 		else
 		{
 			errorcode = GetLastError();
-			w2e_print_error("Error receiving packet! 0x%X\n", errorcode);
+			w2e_error_printf("Error receiving packet! 0x%X\n", errorcode);
 			w2e_ctrs.err_rx++;
 
 			switch (errorcode)
 			{
 			case 122:
 			{
-				w2e_print_error("ERROR_INSUFFICIENT_BUFFER: The captured packet is larger than the pPacket buffer\n");
+				w2e_error_printf("ERROR_INSUFFICIENT_BUFFER: The captured packet is larger than the pPacket buffer\n");
 				break;
 			}
 			case 232:
 			{
-				w2e_print_error("ERROR_NO_DATA: The handle has been shutdown using WinDivertShutdown() and the packet queue is empty.\n");
+				w2e_error_printf("ERROR_NO_DATA: The handle has been shutdown using WinDivertShutdown() and the packet queue is empty.\n");
 				break;
 			}
 			default:
 			{
-				w2e_print_error("Unexpected error 0x%X\n", errorcode);
+				w2e_error_printf("Unexpected error 0x%X\n", errorcode);
 				break;
 			}
 			}
@@ -580,7 +580,7 @@ int main(int argc, char* argv[])
 	HWND wh = GetConsoleWindow();
 	if (!MoveWindow(wh, 0, 0, 1000, 650, TRUE))
 	{
-		w2e_print_error("Warning: Unable to resize window\n");
+		w2e_error_printf("Warning: Unable to resize window\n");
 	}
 
 	/**
@@ -590,7 +590,7 @@ int main(int argc, char* argv[])
 
 	if (!__w2e_client__is_admin())
 	{
-		w2e_print_error("You need to run W2E Client as Administrator. Press Enter to terminate.\n");
+		w2e_error_printf("You need to run W2E Client as Administrator. Press Enter to terminate.\n");
 		(void)getchar();
 		exit(1);
 	}
@@ -611,7 +611,7 @@ int main(int argc, char* argv[])
 	w2e_log_printf("INI: Reading config file %s...\n", ini_fname);
 	if (ini_parse(ini_fname, __w2e_client__ini_handler, &w2e_cfg_client) != 0)
 	{
-		w2e_print_error("INI: Error in file %s\n", ini_fname);
+		w2e_error_printf("INI: Error in file %s\n", ini_fname);
 		return 1;
 	}
 
@@ -620,7 +620,7 @@ int main(int argc, char* argv[])
 	 */
 	if (w2e_crypto__init((const u8*)w2e_cfg_client.key, W2E_KEY_LEN, &crypto_handle) != 0)
 	{
-		w2e_print_error("Crypto init error\n");
+		w2e_error_printf("Crypto init error\n");
 		return 1;
 	}
 
@@ -653,7 +653,7 @@ int main(int argc, char* argv[])
 
 	if (!w_filter)
 	{
-		w2e_print_error("Filter init error\n");
+		w2e_error_printf("Filter init error\n");
 		return 1;
 	}
 

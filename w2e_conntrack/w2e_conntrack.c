@@ -127,7 +127,7 @@ static inline uint32_t __w2e_conntrack__seconds(void)
 	struct timespec t;
 	if (clock_gettime(CLOCK_MONOTONIC, &t) == -1)
 	{
-		w2e_print_error("clock gettime error\n");
+		w2e_error_printf("clock gettime error\n");
 		return 0xFFFFFFFF;
 	}
 	return t.tv_sec;
@@ -254,7 +254,7 @@ w2e_ct_entry_t* w2e_conntrack__create(uint8_t* l3, uint8_t* l4, uint16_t client)
 
 	if (!w2e_ct)
 	{
-		w2e_print_error("Conntrack uninitialized\n");
+		w2e_error_printf("Conntrack uninitialized\n");
 		return NULL;
 	}
 
@@ -325,7 +325,7 @@ static inline w2e_ct_entry_t* __w2e_conntrack__create(const w2e_ct_tuple_t* tupl
 	entry = (w2e_ct_entry_t*)calloc(1, sizeof(w2e_ct_entry_t));
 	if (!entry)
 	{
-		w2e_print_error("Can't allocate memory\n");
+		w2e_error_printf("Can't allocate memory\n");
 		return NULL;
 	}
 
@@ -356,7 +356,7 @@ w2e_ct_entry_t* w2e_conntrack__resolve(uint8_t* l3, uint8_t* l4)
 
 	if (!w2e_ct)
 	{
-		w2e_print_error("Conntrack uninitialized\n");
+		w2e_error_printf("Conntrack uninitialized\n");
 		return NULL;
 	}
 
@@ -376,14 +376,14 @@ int w2e_conntrack__init(void)
 
 	if (w2e_ct)
 	{
-		w2e_print_error("Conntrack seems to be initialized already\n");
+		w2e_error_printf("Conntrack seems to be initialized already\n");
 		return 1;
 	}
 
 	w2e_ct = (w2e_ct_entry_t*)calloc(W2E_CT_BUCKETS, sizeof(w2e_ct_entry_t));
 	if (!w2e_ct)
 	{
-		w2e_print_error("Can't allocate memory\n");
+		w2e_error_printf("Can't allocate memory\n");
 		return 1;
 	}
 
@@ -415,7 +415,7 @@ int w2e_conntrack__deinit(void)
 
 	if (!w2e_ct)
 	{
-		w2e_print_error("Conntrack seems to be uninitialized already\n");
+		w2e_error_printf("Conntrack seems to be uninitialized already\n");
 		return 1;
 	}
 

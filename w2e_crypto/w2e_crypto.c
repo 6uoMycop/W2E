@@ -17,14 +17,14 @@ int w2e_crypto__init(const u8* key, size_t len, w2e_crypto__handle_t* handle)
 	handle->enc = aes_encrypt_init(key, len);
 	if (!handle->enc)
 	{
-		w2e_print_error("aes_encrypt_init error\n");
+		w2e_error_printf("aes_encrypt_init error\n");
 		return -1;
 	}
 
 	handle->dec = aes_decrypt_init(key, len);
 	if (!handle->dec)
 	{
-		w2e_print_error("aes_decrypt_init error\n");
+		w2e_error_printf("aes_decrypt_init error\n");
 		aes_encrypt_deinit(handle->enc);
 		handle->enc = NULL;
 		return -1;
@@ -84,7 +84,7 @@ void w2e_crypto__dec(const u8* crypt, u8* plain, int sz_fact, const w2e_crypto__
 {
 	if (sz_fact % handle->key_len)
 	{
-		w2e_print_error("Buffer of wrong size (%d)\n", sz_fact);
+		w2e_error_printf("Buffer of wrong size (%d)\n", sz_fact);
 	}
 
 	for (int i = 0; i < sz_fact / handle->key_len; i++)

@@ -121,7 +121,7 @@
 /**
  * Define error printf macro.
  */
-#define w2e_print_error(fmt, ...) do { fprintf(stderr, "[ERROR]%16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
+#define w2e_error_printf(fmt, ...) do { fprintf(stderr, "[ERROR]%16s:%-5d %32s():  " fmt, __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 
 /**
