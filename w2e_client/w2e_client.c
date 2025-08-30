@@ -202,6 +202,7 @@ static void __w2c_client__sigint_handler(int sig)
 	(void)sig;
 	
 	client_stop = 1;
+	Sleep(1000);
 	__w2e_client__deinit_all(g_filters, g_filter_num);
 	w2e_crypto__deinit(&crypto_handle);
 	exit(EXIT_SUCCESS);
