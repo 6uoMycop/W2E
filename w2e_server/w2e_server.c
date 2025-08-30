@@ -310,7 +310,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 	)
 	{
 		w2e_ctrs.decap++;
-		w2e_dbg_printf("Decap\n");
+		w2e_dbg_printf("[nfqueue id= %d] Decap\n", ctx->id);
 
 		/**
 		 * Calculate client's id (lower dst port byte).
@@ -319,7 +319,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		//w2e_dbg_printf("id_client=%d (0x%04X) 0x%08X\n", id_client, ntohs(hdr_udp->dest) & (uint16_t)(0xFF00), hdr_ip->saddr);
 		if (!w2e_ctx.client_ctx[id_client].is_configured) /** Client not configured - drop */
 		{
-			w2e_dbg_printf("Malformed packet! Client port 0x%04X, not configured. Drop\n", ntohs(hdr_udp->source));
+			w2e_dbg_printf("[nfqueue id= %d] Malformed packet! Client port 0x%04X, not configured. Drop\n", ctx->id, ntohs(hdr_udp->source));
 			w2e_ctrs.err_rx++;
 			goto drop;
 		}
@@ -348,7 +348,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		 */
 		if (!w2e_common__validate_dec(pkt1))
 		{
-			w2e_error_printf("Validation: Malformed packet (possibly wrong key)! Drop. Client port is 0x%04X\n",
+			w2e_error_printf("[nfqueue id= %d] Validation: Malformed packet (possibly wrong key)! Drop. Client port is 0x%04X\n",
+							ctx->id,
 							ntohs(hdr_udp->source));
 			w2e_ctrs.err_rx++;
 			goto drop;
@@ -372,7 +373,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 			if (hdr_dec_ip->protocol == 0x11 /** UDP */
 				&& hdr_dec_udp->dest == htons(53)) /** DNS */
 			{
-				w2e_dbg_printf("DNS processing OUT id_client=%d (plain sport=0x%04X)\n", id_client, ntohs(hdr_dec_udp->source));
+				w2e_dbg_printf("[nfqueue id= %d] DNS processing OUT id_client=%d (plain sport=0x%04X)\n",
+								ctx->id, id_client, ntohs(hdr_dec_udp->source));
 				/** Remember client's DNS server address */
 				w2e_ctx.client_ctx[id_client].ip_dns_last = hdr_dec_ip->daddr;
 				/** Substitute ours DNS server */
@@ -397,7 +399,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		}
 		else
 		{
-			w2e_error_printf("WARN: id_client=%d unknown transport protocol 0x%02X)\n", id_client, hdr_dec_ip->protocol);
+			w2e_error_printf("[nfqueue id= %d] WARN: id_client=%d unknown transport protocol 0x%02X)\n", ctx->id, id_client, hdr_dec_ip->protocol);
 		}
 
 		/**
@@ -428,7 +430,7 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 		}
 		id_client = ct->id_client;
 
-		w2e_dbg_printf("Encap\n");
+		w2e_dbg_printf("[nfqueue id= %d] Encap\n", ctx->id);
 		w2e_ctrs.encap++;
 
 		/**
@@ -439,8 +441,8 @@ static int __w2e_server__cb(struct nfq_q_handle* qhandle, struct nfgenmsg* nfmsg
 			if (hdr_ip->protocol == 0x11 /** UDP */
 				&& hdr_udp->source == htons(53)) /** DNS */
 			{
-				w2e_dbg_printf("DNS processing IN id_client=%d (plain sport=0x%04X) 0x%08X\n",
-								id_client, ntohs(hdr_udp->source), w2e_ctx.client_ctx[id_client].ip_client);
+				w2e_dbg_printf("[nfqueue id= %d] DNS processing IN id_client=%d (plain sport=0x%04X) 0x%08X\n",
+								ctx->id, id_client, ntohs(hdr_udp->source), w2e_ctx.client_ctx[id_client].ip_client);
 
 				/** Substitute client's DNS server back */
 				hdr_ip->saddr = w2e_ctx.client_ctx[id_client].ip_dns_last;
@@ -576,7 +578,7 @@ static void __w2e_server__deinit()
 	server_stop = 1;
 }
 
-void __w2e_server__sig_handler(int n)
+static void __w2e_server__sig_handler(int n)
 {
 	(void)n;
 	__w2e_server__deinit();
@@ -745,7 +747,7 @@ static int __w2e_server__iptables_add(
 	const char* proto,		/** protocol name */
 	const char* port_dir,	/** port direction src or dst: {"--sport", "--dport"} */
 	const char* port,		/** port value/range */
-	const char* balance		/** balance queues: must be "0:x", where x= W2E_SERVER_NFQUEUE_NUM-1, or "0" if W2E_SERVER_NFQUEUE_NUM==0 */
+	const char* balance		/** balance queues: must be "0:x", where x= W2E_SERVER_NFQUEUE_NUM-1, or "0" if W2E_SERVER_NFQUEUE_NUM==1 */
 )
 {
 	int stat;
@@ -755,9 +757,9 @@ static int __w2e_server__iptables_add(
 		"-j", "NFQUEUE", "--queue-bypass",
 #if W2E_SERVER_NFQUEUE_NUM > 1
 		"--queue-balance",
-#else // W2E_SERVER_NFQUEUE_NUM == 0
+#else // W2E_SERVER_NFQUEUE_NUM <= 1
 		"--queue-num",
-#endif // W2E_SERVER_NFQUEUE_NUM == 0
+#endif // W2E_SERVER_NFQUEUE_NUM <= 1
 		balance, NULL };
 
 	int pid = fork();
@@ -792,7 +794,7 @@ static int __w2e_server__iptables_init()
 #endif // W2E_SERVER_NFQUEUE_NUM > 99
 
 #if W2E_SERVER_NFQUEUE_NUM > 1
-	snprintf(&(num_or_balance[2]), 3, ":%d", W2E_SERVER_NFQUEUE_NUM - 1);
+	snprintf(&(num_or_balance[1]), 3, ":%d", W2E_SERVER_NFQUEUE_NUM - 1);
 #endif // W2E_SERVER_NFQUEUE_NUM != 0
 
 	w2e_dbg_printf("num_or_balance: \'%s\'\n", num_or_balance);
