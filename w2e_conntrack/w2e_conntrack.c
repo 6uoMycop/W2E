@@ -56,6 +56,8 @@ static volatile int gc_stop = 0;
 
 /**
  * Garbage collector thread worker.
+ * Wakes up every second (to pervent stuck on program exit),
+ * but performs real action only every W2E_CT_GC_SLEEP_SEC seconds
  */
 static void* __w2e_conntrack__gc_worker(void* vptr_args)
 {
@@ -65,31 +67,38 @@ static void* __w2e_conntrack__gc_worker(void* vptr_args)
 	w2e_ct_entry_t* ct = NULL;
 	w2e_ct_entry_t* tmp = NULL;
 
+	unsigned int slept_secs = 0;
+
 	while (!gc_stop)
 	{
-		/** In every bucket */
-		for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)
+		if (slept_secs >= W2E_CT_GC_SLEEP_SEC)
 		{
-			/** Get bucket */
-			bucket = &(w2e_ct[i]);
-			/** Check list */
-			list_for_each_entry_safe(ct, tmp, &(bucket->list), list)
+			/** In every bucket */
+			for (unsigned int i = 0; i < W2E_CT_BUCKETS; i++)
 			{
-				if (__w2e_conntrack__is_expired(ct))
+				/** Get bucket */
+				bucket = &(w2e_ct[i]);
+				/** Check list */
+				list_for_each_entry_safe(ct, tmp, &(bucket->list), list)
 				{
-					pthread_mutex_lock(&(bucket->mutex));
-					w2e_dbg_printf("Deleted ct entry by timeout: 0x%08X 0x%08X 0x%04X 0x%04X 0x%02X\n",
-									ct->tuple.addr[0], ct->tuple.addr[1], ct->tuple.port[0], ct->tuple.port[1], ct->tuple.proto);
-					/* Remove the component from the list */
-					list_del(&(ct->list));
-					/* Free the memory */
-					free(ct);
-					pthread_mutex_unlock(&(bucket->mutex));
+					if (__w2e_conntrack__is_expired(ct))
+					{
+						pthread_mutex_lock(&(bucket->mutex));
+						w2e_dbg_printf("Deleted ct entry by timeout: 0x%08X 0x%08X 0x%04X 0x%04X 0x%02X\n",
+							ct->tuple.addr[0], ct->tuple.addr[1], ct->tuple.port[0], ct->tuple.port[1], ct->tuple.proto);
+						/* Remove the component from the list */
+						list_del(&(ct->list));
+						/* Free the memory */
+						free(ct);
+						pthread_mutex_unlock(&(bucket->mutex));
+					}
 				}
 			}
+			slept_secs = 0;
 		}
 
-		sleep(W2E_CT_GC_SLEEP_SEC);
+		sleep(1);
+		slept_secs++;
 	}
 
 	return NULL;
